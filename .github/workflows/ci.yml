@@ -1,9 +1,19 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
-    # 收口到 the-orrery 共享 reusable workflow。
-    # python-version 传本仓 python_min，避免默认版本与仓口径不符。
     uses: the-orrery/.github/.github/workflows/python-ci.yml@v7
     with:
       python-version: "3.12"
