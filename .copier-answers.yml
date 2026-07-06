@@ -1,0 +1,12 @@
+# 由 Copier 维护, 绝不手改 (seed update 会覆盖)。
+_commit: bbdb09b
+_src_path: https://github.com/the-orrery/seed
+author: Eridanus
+cli_command: almagest
+description: ''
+kind: cli
+license: MIT
+package_name: almagest
+project_name: almagest
+publish: false
+python_min: '3.12'

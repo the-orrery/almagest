@@ -1,0 +1,72 @@
+[build-system]
+# uv_build: 纯 Python 甜区。命中 C/Rust 扩展 / build hook / VCS 动态版本 /
+# 隐式 namespace 包(无 __init__.py) 任一 → 换 hatchling。
+requires = ["uv_build>=0.11.24,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "almagest"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Eridanus" }]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "typer>=0.12",
+    "pydantic-settings>=2.0",
+    "structlog>=24.0",
+]
+
+[project.scripts]
+almagest = "almagest.cli:run"
+
+[dependency-groups]
+# ruff 由 `seed ruff` 通过 uvx 跑 canonical CI 口径; pyrefly 走全局 uv tool。
+# 两者均不进 dev-deps, 让每仓 .venv 保持纯 Python。
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-randomly",
+    "poethepoet",
+]
+# 出单文件 binary: uv run --group freeze poe freeze
+freeze = ["pyinstaller>=6.0"]
+
+[tool.poe.tasks]
+lint = "seed ruff check ."
+fmt = "seed ruff format ."
+fmt-check = "seed ruff format --check ."
+typecheck = "pyrefly check"
+test = "pytest"
+check = { sequence = ["lint", "fmt-check", "typecheck", "test"], help = "lint + format-check + typecheck + test" }
+freeze = { cmd = "pyinstaller --onefile --clean --name almagest src/almagest/cli.py", help = "打单文件 binary 到 dist/" }
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+# TRY003: raise 现场的语境化短信息是通用惯用法, 不强制建异常类
+ignore = ["E501", "TRY003"]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试桩为保接口签名留未用参数 (ARG); assert / 魔数是测试惯用法
+"tests/**" = ["S101", "PLR2004", "ARG"]
+# typer 命令的每个 CLI 选项就是一个参数, 参数多是框架惯用法, 不是 PLR0913 真问题
+"**/cli.py" = ["PLR0913"]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer 的 x = typer.Option(...) 默认值是惯用法, 不是 B008 真问题
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
