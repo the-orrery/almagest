@@ -1,0 +1,10 @@
+{
+  "_doc": "almagest manifest 示例。almagest 是纯引擎,不含真数据;真 manifest + skill 内容放你自己的(私有)数据仓,经 $ALMAGEST_MANIFEST 或惯例软链 $XDG_CONFIG_HOME/almagest/skills.json 指过来。每条 skill = {name, source(目录), lanes, visibility};lanes map = lane 名 → 该 lane 的 skills 目录或目录列表。",
+  "lanes": {
+    "personal": ["~/.claude/skills", "~/.codex/skills"],
+    "work": ["~/.claude/skills-work", "~/.codex/skills-work"]
+  },
+  "skills": [
+    { "name": "example-skill", "source": "~/path/to/your/skill-data/example-skill", "lanes": ["personal", "work"], "visibility": "private" }
+  ]
+}

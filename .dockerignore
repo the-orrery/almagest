@@ -1,0 +1,14 @@
+.venv/
+.git/
+dist/
+__pycache__/
+*.pyc
+.ruff_cache/
+.pytest_cache/
+.codegraph/
+.env
+.repo-release-gate.local.toml
+.docket-release-gate.local.toml
+*.db
+*.sqlite
+*.sqlite3

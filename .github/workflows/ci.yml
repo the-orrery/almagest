@@ -1,0 +1,11 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  ci:
+    # 收口到 the-orrery 共享 reusable workflow。
+    # python-version 传本仓 python_min，避免默认版本与仓口径不符。
+    uses: the-orrery/.github/.github/workflows/python-ci.yml@v7
+    with:
+      python-version: "3.12"
+      ruff-extend-ignore: "['TRY003']"
+      ruff-extend-per-file-ignores: "{'tests/**'=['S101','PLR2004','ARG'],'**/cli.py'=['PLR0913']}"
