@@ -13,6 +13,8 @@ htmlcov/
 .env
 .repo-release-gate.local.toml
 .docket-release-gate.local.toml
+AGENTS.md
+CLAUDE.md
 *.db
 *.sqlite
 *.sqlite3
