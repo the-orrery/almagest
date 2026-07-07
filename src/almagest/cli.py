@@ -3,11 +3,10 @@ from __future__ import annotations
 import sys
 
 import typer
+from orrery_heartbeat import check_update
 
 from almagest import skills, telemetry
 from almagest.logging_setup import setup_logging
-
-from orrery_heartbeat import check_update
 
 app = typer.Typer(
     no_args_is_help=True,
