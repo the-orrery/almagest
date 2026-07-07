@@ -7,6 +7,8 @@ import typer
 from almagest import skills, telemetry
 from almagest.logging_setup import setup_logging
 
+from orrery_heartbeat import check_update
+
 app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
@@ -164,6 +166,7 @@ def stats() -> None:
 
 
 def run() -> None:
+    check_update("almagest", "the-orrery/almagest")
     """Console-script entry: 在 per-invocation telemetry 捕获下跑 CLI。
     wrapper 负责 stdout/stderr 捕获 + exit-code 映射, 然后向本地 SQLite ledger 写一行
     ($ALMAGEST_TELEMETRY_OFF 或 DO_NOT_TRACK 关闭)。"""
