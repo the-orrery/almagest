@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: the-orrery/.github/.github/workflows/python-ci.yml@944bb58254511420a9c8754c798b3b6c77071493
+    uses: the-orrery/.github/.github/workflows/python-ci.yml@77c7ac691d7da788412915d81ad5ac498187d179 # v8
     with:
       python-version: "3.12"
       ruff-extend-ignore: "['TRY003']"
