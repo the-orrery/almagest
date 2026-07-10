@@ -1,15 +1,21 @@
 # almagest
 
+## Install
+
+Production installs use the `almagest-<os>-<arch>` asset and `SHA256SUMS` from
+[GitHub Releases](https://github.com/the-orrery/almagest/releases). The frozen
+binary does not need Python, `uv`, or a local source checkout. Current targets
+are macOS arm64 and Linux x86_64 (built on Ubuntu 22.04).
+
+Run `./scripts/build-release.sh` for a local build. Pull requests build and
+smoke-test both targets; a matching `v<project.version>` tag publishes an
+immutable release.
+
 
 
 ## 开发
 
-    # 一次性(全机共用): seed 提供 canonical 本地 ruff; pyrefly 走全局工具
-    uv tool install git+https://github.com/the-orrery/seed.git
-    uv tool install pyrefly
-    uv tool install pre-commit --with pre-commit-uv
-
-    uv sync                # 各仓 .venv 只装纯 Python 依赖
+    uv sync                # 开发依赖留在仓内 .venv
     uv run poe check       # ruff check + format-check + typecheck + test
 
 ## 运行

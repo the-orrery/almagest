@@ -20,7 +20,7 @@ dependencies = [
     "typer>=0.26.8",
     "pydantic-settings>=2.0",
     "structlog>=24.0",
-    "orrery-heartbeat @ git+https://github.com/the-orrery/orrery-heartbeat.git",
+    "orrery-heartbeat @ git+https://github.com/the-orrery/orrery-heartbeat.git@3eb8b4c4d5855e8da9f59f4456adfc5b38d262e8",
 ]
 
 [project.scripts]
@@ -37,16 +37,16 @@ dev = [
     "poethepoet",
 ]
 # 出单文件 binary: uv run --group freeze poe freeze
-freeze = ["pyinstaller>=6.0"]
+freeze = ["pyinstaller>=6,<7"]
 
 [tool.poe.tasks]
-lint = "seed ruff check ."
-fmt = "seed ruff format ."
-fmt-check = "seed ruff format --check ."
+lint = "uvx ruff@0.15.16 check ."
+fmt = "uvx ruff@0.15.16 format ."
+fmt-check = "uvx ruff@0.15.16 format --check ."
 typecheck = "pyrefly check"
 test = "pytest"
 check = { sequence = ["lint", "fmt-check", "typecheck", "test"], help = "lint + format-check + typecheck + test" }
-freeze = { cmd = "pyinstaller --onefile --clean --name almagest src/almagest/cli.py", help = "打单文件 binary 到 dist/" }
+freeze = { cmd = "./scripts/build-release.sh", help = "build the release binary" }
 
 [tool.ruff]
 line-length = 88
