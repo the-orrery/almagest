@@ -27,7 +27,7 @@ freeze = [
 
 [package.metadata]
 requires-dist = [
-    { name = "orrery-heartbeat", git = "https://github.com/the-orrery/orrery-heartbeat.git" },
+    { name = "orrery-heartbeat", git = "https://github.com/the-orrery/orrery-heartbeat.git?rev=d5e4f80a74c61772fc822b102a548184301d9e4d" },
     { name = "pydantic-settings", specifier = ">=2.0" },
     { name = "structlog", specifier = ">=24.0" },
     { name = "typer", specifier = ">=0.26.8" },
@@ -41,7 +41,7 @@ dev = [
     { name = "pytest-mock" },
     { name = "pytest-randomly" },
 ]
-freeze = [{ name = "pyinstaller", specifier = ">=6.0" }]
+freeze = [{ name = "pyinstaller", specifier = ">=6,<7" }]
 
 [[package]]
 name = "altgraph"
@@ -192,8 +192,8 @@ wheels = [
 
 [[package]]
 name = "orrery-heartbeat"
-version = "0.1.0"
-source = { git = "https://github.com/the-orrery/orrery-heartbeat.git#fff4587e279275f6c452891f6bb34fb537543cc3" }
+version = "0.2.0"
+source = { git = "https://github.com/the-orrery/orrery-heartbeat.git?rev=d5e4f80a74c61772fc822b102a548184301d9e4d#d5e4f80a74c61772fc822b102a548184301d9e4d" }
 
 [[package]]
 name = "packaging"
