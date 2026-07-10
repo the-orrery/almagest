@@ -27,7 +27,7 @@ freeze = [
 
 [package.metadata]
 requires-dist = [
-    { name = "orrery-heartbeat", git = "https://github.com/the-orrery/orrery-heartbeat.git?rev=d5e4f80a74c61772fc822b102a548184301d9e4d" },
+    { name = "orrery-heartbeat", git = "https://github.com/the-orrery/orrery-heartbeat.git?rev=3eb8b4c4d5855e8da9f59f4456adfc5b38d262e8" },
     { name = "pydantic-settings", specifier = ">=2.0" },
     { name = "structlog", specifier = ">=24.0" },
     { name = "typer", specifier = ">=0.26.8" },
@@ -193,7 +193,7 @@ wheels = [
 [[package]]
 name = "orrery-heartbeat"
 version = "0.2.0"
-source = { git = "https://github.com/the-orrery/orrery-heartbeat.git?rev=d5e4f80a74c61772fc822b102a548184301d9e4d#d5e4f80a74c61772fc822b102a548184301d9e4d" }
+source = { git = "https://github.com/the-orrery/orrery-heartbeat.git?rev=3eb8b4c4d5855e8da9f59f4456adfc5b38d262e8#3eb8b4c4d5855e8da9f59f4456adfc5b38d262e8" }
 
 [[package]]
 name = "packaging"

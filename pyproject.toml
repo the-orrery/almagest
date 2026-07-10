@@ -20,7 +20,7 @@ dependencies = [
     "typer>=0.26.8",
     "pydantic-settings>=2.0",
     "structlog>=24.0",
-    "orrery-heartbeat @ git+https://github.com/the-orrery/orrery-heartbeat.git@d5e4f80a74c61772fc822b102a548184301d9e4d",
+    "orrery-heartbeat @ git+https://github.com/the-orrery/orrery-heartbeat.git@3eb8b4c4d5855e8da9f59f4456adfc5b38d262e8",
 ]
 
 [project.scripts]
