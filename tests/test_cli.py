@@ -38,12 +38,98 @@ def _make_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return lane
 
 
+def _make_identity_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, source_path: str = "skills/demo"
+) -> Path:
+    root = tmp_path / "personal-sources"
+    src = root / "skills" / "demo"
+    src.mkdir(parents=True)
+    (src / "SKILL.md").write_text("# demo")
+    lane = tmp_path / "lane"
+    lane.mkdir()
+    roots = tmp_path / "source-roots.json"
+    roots.write_text(json.dumps({"personal/skill-vault": str(root)}))
+    manifest = tmp_path / "skills.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "lanes": {"personal": str(lane)},
+                "skills": [
+                    {
+                        "name": "demo",
+                        "source": {
+                            "repository": "personal/skill-vault",
+                            "path": source_path,
+                        },
+                        "lanes": ["personal"],
+                    }
+                ],
+            }
+        )
+    )
+    monkeypatch.setenv("ALMAGEST_MANIFEST", str(manifest))
+    monkeypatch.setenv("ALMAGEST_SOURCE_ROOTS", str(roots))
+    return lane
+
+
 def test_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _make_manifest(tmp_path, monkeypatch)
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
     assert "demo" in result.stdout
     assert "1 skills" in result.stdout
+
+
+def test_identity_source_resolves_from_host_overlay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lane = _make_identity_manifest(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["install", "--apply"])
+
+    assert result.exit_code == 0, result.stdout
+    assert (lane / "demo").is_symlink()
+    result = runner.invoke(app, ["verify"])
+    assert result.exit_code == 0, result.stdout
+
+
+def test_identity_source_missing_root_is_actionable_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _make_identity_manifest(tmp_path, monkeypatch)
+    monkeypatch.delenv("ALMAGEST_SOURCE_ROOTS")
+
+    result = runner.invoke(app, ["doctor", "--json"])
+
+    assert result.exit_code == 1
+    report = json.loads(result.stdout)
+    assert report["status"] == "fail"
+    assert report["checks"][0]["detail_code"] == "missing-source-root"
+    assert report["checks"][0]["source_ref"] == "personal/skill-vault:skills/demo"
+
+
+def test_identity_source_cannot_escape_host_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _make_identity_manifest(tmp_path, monkeypatch, source_path="../outside")
+
+    result = runner.invoke(app, ["doctor", "--json"])
+
+    assert result.exit_code == 1
+    report = json.loads(result.stdout)
+    assert report["checks"][0]["detail_code"] == "source-path-escape"
+
+
+def test_doctor_json_redacts_legacy_source_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _make_manifest(tmp_path, monkeypatch)
+
+    result = runner.invoke(app, ["doctor", "--json"])
+
+    assert result.exit_code == 1
+    report = json.loads(result.stdout)
+    assert report["checks"][0]["source_ref"] == "legacy-path"
 
 
 def test_verify_fails_before_install(

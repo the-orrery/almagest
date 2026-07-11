@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 
 import typer
@@ -12,6 +13,51 @@ app = typer.Typer(
     add_completion=False,
     help="almagest — agent skill 索引+安装器",
 )
+
+
+def _doctor_report(
+    manifest: skills.Manifest, *, allow_extra: set[str]
+) -> tuple[dict[str, object], bool]:
+    link_ops = skills.plan(manifest)
+    composition_problems = skills.composition_problems(
+        manifest, allow_extra=allow_extra
+    )
+    failed_links = [op for op in link_ops if op.status != "ok"]
+    checks: list[dict[str, object]] = []
+    for op in link_ops:
+        checks.append(
+            {
+                "id": f"skill.{op.skill}",
+                "kind": "skill-link",
+                "lane": op.lane,
+                "status": "pass" if op.status == "ok" else "fail",
+                "detail_code": None if op.status == "ok" else op.status,
+                "source_ref": op.source_ref,
+            }
+        )
+    for op in composition_problems:
+        checks.append(
+            {
+                "id": f"composition.{op.target.name}",
+                "kind": "runtime-composition",
+                "lane": op.lane,
+                "status": "fail",
+                "detail_code": op.status,
+            }
+        )
+    failed = len(failed_links) + len(composition_problems)
+    return (
+        {
+            "schema_version": 1,
+            "status": "pass" if failed == 0 else "fail",
+            "checks": checks,
+            "summary": {
+                "passed": len(link_ops) - len(failed_links),
+                "failed": failed,
+            },
+        },
+        failed == 0,
+    )
 
 
 @app.callback()
@@ -93,11 +139,20 @@ def doctor(
         "--allow-extra",
         help="允许的 manifest 外 active entry 名,可重复",
     ),
+    json_output: bool = typer.Option(
+        False, "--json", help="输出稳定的机器可读诊断 JSON"
+    ),
 ) -> None:
     """完整健康检查:manifest link/source + runtime composition。"""
     setup_logging()
     m = skills.load()
     allowed = set(allow_extra)
+    if json_output:
+        report, healthy = _doctor_report(m, allow_extra=allowed)
+        typer.echo(json.dumps(report, ensure_ascii=False, sort_keys=True))
+        if not healthy:
+            raise typer.Exit(1)
+        return
     link_problems = skills.verify(m)
     composition_problems = skills.composition_problems(m, allow_extra=allowed)
     if not link_problems and not composition_problems:

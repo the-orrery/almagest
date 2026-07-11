@@ -21,6 +21,7 @@ kind: reference
 | 配置 | `src/almagest/config.py` | `pydantic-settings` 配置入口，环境变量前缀为 `ALMAGEST_`。 |
 | 日志 | `src/almagest/logging_setup.py` | structlog 配置；TTY 输出 console，非 TTY 输出 JSON。 |
 | CLI | `src/almagest/cli.py` | Typer app 和 console-script 入口。 |
+| skill resolver | `src/almagest/skills.py` | 读取 manifest、解析路径型或逻辑 source ref，并计划/校验/安装 lane symlink。 |
 | telemetry | `src/almagest/telemetry.py` | 本地 SQLite 用量账本；记录调用、耗时、错误和输出样本。 |
 | 测试 | `tests/` | pytest 测试。 |
 | 工程配置 | `pyproject.toml` | 依赖、构建后端、poe tasks、ruff、pytest、coverage 配置。 |
@@ -32,6 +33,7 @@ kind: reference
 - **ruff/pyrefly 不进 dev-deps**。ruff 由 `seed ruff` 通过 `uvx` 按共享 CI canonical 口径运行，pyrefly 走全局 `uv tool`；模板默认不把它们装进每仓 `.venv`，避免每个新仓重复拉二进制工具。
 - **telemetry 必须 best-effort**。本地账本只服务工具改进，任何记录失败都不能改变主命令输出或 exit code。
 - **CLI 输出是对外契约的一部分**。如果输出会被 agent 或脚本消费，改字段、格式和 exit code 前应补 spec 或测试。
+- **portable manifest 与 host root 分离**。新 capability 的 source 用 repository identity + 相对路径表达；本机根目录只由 source-root overlay 提供。详见 [[source-resolution-contract]]。
 - **`docs/` 是本仓文档域**。耐用知识写进本目录；源码、运行态、raw asset 不属于这里。
 
 ## 4. 关键路径
