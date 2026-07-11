@@ -13,16 +13,24 @@ import os
 import shutil
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 DEFAULT_MANIFEST_ENV = "ALMAGEST_MANIFEST"
+DEFAULT_SOURCE_ROOTS_ENV = "ALMAGEST_SOURCE_ROOTS"
 
 LaneTarget = str | list[str]
 
 
+class SourceRef(BaseModel):
+    """Portable source identity; its local root belongs to host configuration."""
+
+    repository: str = Field(min_length=1)
+    path: str = Field(min_length=1)
+
+
 class Skill(BaseModel):
     name: str
-    source: str
+    source: str | SourceRef
     lanes: list[str]
     visibility: str = "private"
 
@@ -34,6 +42,57 @@ class Manifest(BaseModel):
 
 def _expand(p: str) -> Path:
     return Path(p).expanduser()
+
+
+def source_roots_path() -> Path:
+    """Return the host-local source-root overlay, never a portable manifest path."""
+    override = os.environ.get(DEFAULT_SOURCE_ROOTS_ENV)
+    if override:
+        return _expand(override)
+    config_home = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(config_home).expanduser() / "almagest" / "source-roots.json"
+
+
+def load_source_roots(path: Path | None = None) -> dict[str, Path]:
+    """Load repository identity -> local root mappings; absent overlay means no roots."""
+    target = path or source_roots_path()
+    if not target.exists():
+        return {}
+    raw = json.loads(target.read_text())
+    if not isinstance(raw, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in raw.items()
+    ):
+        raise ValueError("source-roots.json 必须是 repository -> 本机路径的对象")
+    return {repository: _expand(root) for repository, root in raw.items()}
+
+
+class SourceResolution(BaseModel):
+    path: Path | None = None
+    status: str = "ok"
+    reference: str
+
+
+def source_reference(source: str | SourceRef) -> str:
+    if isinstance(source, str):
+        return "legacy-path"
+    return f"{source.repository}:{source.path}"
+
+
+def resolve_source(source: str | SourceRef) -> SourceResolution:
+    """Resolve one source without allowing a portable path to escape its host root."""
+    reference = source_reference(source)
+    if isinstance(source, str):
+        return SourceResolution(path=_expand(source), reference=reference)
+
+    root = load_source_roots().get(source.repository)
+    if root is None:
+        return SourceResolution(status="missing-source-root", reference=reference)
+    candidate = root / source.path
+    try:
+        candidate.resolve().relative_to(root.resolve())
+    except ValueError:
+        return SourceResolution(status="source-path-escape", reference=reference)
+    return SourceResolution(path=candidate, reference=reference)
 
 
 def _lane_targets(raw: LaneTarget) -> list[Path]:
@@ -68,7 +127,8 @@ def load(path: Path | None = None) -> Manifest:
 class LinkOp(BaseModel):
     skill: str
     lane: str
-    source: Path
+    source: Path | None = None
+    source_ref: str = ""
     target: Path
     status: str
     current: str | None = None
@@ -102,7 +162,8 @@ def plan(m: Manifest) -> list[LinkOp]:
     ops: list[LinkOp] = []
     seen: set[Path] = set()
     for sk in m.skills:
-        src = _expand(sk.source)
+        resolution = resolve_source(sk.source)
+        src = resolution.path
         for lane in sk.lanes:
             raw_base = m.lanes.get(lane)
             if raw_base is None:
@@ -111,6 +172,7 @@ def plan(m: Manifest) -> list[LinkOp]:
                         skill=sk.name,
                         lane=lane,
                         source=src,
+                        source_ref=resolution.reference,
                         target=Path(),
                         status="unknown-lane",
                     )
@@ -122,7 +184,9 @@ def plan(m: Manifest) -> list[LinkOp]:
                     continue
                 seen.add(target)
                 current = str(target.readlink()) if target.is_symlink() else None
-                if not src.exists():
+                if resolution.status != "ok":
+                    status = resolution.status
+                elif src is None or not src.exists():
                     status = "missing-src"
                 elif target.is_symlink():
                     status = "ok" if Path(current or "") == src else "repoint"
@@ -135,6 +199,7 @@ def plan(m: Manifest) -> list[LinkOp]:
                         skill=sk.name,
                         lane=lane,
                         source=src,
+                        source_ref=resolution.reference,
                         target=target,
                         status=status,
                         current=current,
@@ -157,7 +222,13 @@ def apply(m: Manifest, *, force: bool = False) -> list[LinkOp]:
     real-dir target 仅在「浅」(只含 symlink)或 force 时替换,否则保留 replace-dir 状态不动。"""
     changed: list[LinkOp] = []
     for op in plan(m):
-        if op.status in {"missing-src", "unknown-lane", "ok"}:
+        if op.status in {
+            "missing-src",
+            "missing-source-root",
+            "source-path-escape",
+            "unknown-lane",
+            "ok",
+        }:
             continue
         op.target.parent.mkdir(parents=True, exist_ok=True)
         if op.target.is_symlink() or op.target.is_file():
