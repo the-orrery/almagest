@@ -1,0 +1,65 @@
+# 能力拍板工作包验收
+
+## 本阶段验收断言
+
+```gherkin
+Scenario: 顺序化完成一个决策轴拍板
+  Given 当前决策卡的上游依赖均已拍板
+  And Codex 已说明问题、事实边界与需要澄清的信息
+  And 当前决策轴的候选项同轴互斥
+  When principal 对 A/B/C/D 形式的真实候选作出选择或修改
+  Then 文档记录决定、理由、后果和可验证断言
+  And 当前决策轴标记为已拍板
+  And 当前卡全部决策轴完成后才进入下一张卡片
+```
+
+```gherkin
+Scenario: 诉求不足以形成真实选项
+  Given 当前信息不足以区分可行方案
+  When 进入该能力卡
+  Then Codex 只提出一到两个高杠杆澄清问题
+  And 不生成凑数方案
+  And 卡片保持待澄清
+```
+
+```gherkin
+Scenario: 完成能力契约
+  Given DEC-01 至 DEC-16 全部标记为已拍板
+  When 对整份能力模型做一致性审阅
+  Then 每个 target、asset、layer、lane 和状态术语均无歧义
+  And 每项能力都有验收断言
+  And Assumption 已验证或转成约束
+  And Risk 已接受或缓解
+  And Issue 已关闭或转单
+  And Dependency 已明确 owner、版本边界和复核条件
+  And 尚未把实现工具选择偷写成能力需求
+```
+
+```gherkin
+Scenario: 能力全集具有可追踪证据
+  Given DEC-01 已明确纳入的资产类型
+  And DEC-02 已明确四个已知 consumer 的 target
+  When 对用户五条成功口径做覆盖审阅
+  Then 每条口径均能追踪到 capability、assertion 和 evidence
+  And 每种纳入资产与每个已知 consumer 均至少出现在一个正向和必要的负向验收场景中
+  And 没有两个能力在未说明边界的情况下声称拥有同一责任
+```
+
+## 完成检查表
+
+- [ ] 16 张卡的每个决策轴均包含真实可选方案。
+- [ ] 16 张卡的每个决策轴均记录 principal 决定与理由。
+- [ ] 16 张卡的每个决策轴均说明收益、代价、风险和可逆性。
+- [ ] 16 张卡的每个决策轴均映射到可执行或可人工复核的验收断言。
+- [ ] 五条成功口径、四个已知 consumer 与 DEC-01 纳入的每种 asset 均进入追踪矩阵。
+- [ ] 上下游决定无冲突；发生重开时已重审受影响卡片。
+- [ ] 能力模型可以回答任意 target 的 desired、plan、live、effective 与责任来源。
+- [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
+
+## 本轮文档落盘验收
+
+- [x] 用户原始目标已进入不可变 capture。
+- [x] 16 项能力与依赖顺序完整记录。
+- [x] 每项均列出独立决策轴，并预留 A/B/C/D 形式候选、推荐、决定、后果与验收位置。
+- [x] PM issue 与 bundle 互相可定位。
+- [x] Markdown、YAML、Git diff 与仓级检查通过。
