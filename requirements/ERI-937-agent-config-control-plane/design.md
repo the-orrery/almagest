@@ -97,11 +97,29 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 
 ### DEC-01 资产范围与身份
 
-- 状态：待给方案
+- 状态：01A 待拍板；01B、01C 待给方案
 - 决策轴：
   - 01A：v1 纳入哪些 asset 类型：skill、MCP、instructions、settings、hooks、plugins 或其它。
   - 01B：每种 asset 的 identity granularity 与 canonical ID 由哪些字段构成。
   - 01C：如何区分同一资产、版本/revision、consumer 派生物、冲突副本和无关同名资产。
+- 01A 已确认约束（decision draft v0.1，2026-07-16，approver: principal）：
+  - 范围至少覆盖 skills、MCP、instructions 和声明式 settings；原“只管 skills”与“skills + MCP”方案已拒绝。
+  - hooks 是 `Must`，不能因其具有可执行风险而整体推迟。
+  - plugins 是否作为一等资产仍未拍板；原 C/D 把 hooks 与 plugins 绑定，不能据此推导 plugins 已进入 `Must`。
+- 01A 重构后的候选：
+
+| 候选 | Must | Later / Out | 新增能力与代价 |
+|---|---|---|---|
+| A（推荐） | skills、MCP、instructions、settings、hooks | plugins 的安装/更新/启停生命周期 Later；Agent 二进制安装 Out | 控制核心配置和事件执行面；plugin 内容可拆成已知子资产治理，但暂不承担 package manager |
+| B | A + plugins 作为一等资产 | launch wrapper、alias、Agent binary Later/Out | 还要处理 plugin manifest、依赖、兼容矩阵、来源信任、安装/升级/卸载和嵌套资产 ownership |
+| C | B + wrapper、alias、Agent binary 等完整 Agent 运行资产 | 无预设 Later | 从配置控制面扩大为 Agent 环境管理器；主机安装、版本切换、进程与恢复边界显著扩大 |
+
+- hooks 进入 `Must` 后接受的后续约束：
+  - DEC-01B/01C 必须定义 hook 的 event、scope、order、executable reference、revision/digest 和派生物身份。
+  - DEC-03 必须覆盖可执行 source 的信任、权限、secret/environment 暴露和审批。
+  - DEC-08/15 必须表达各 consumer 不同的 hook 事件、格式、顺序、失败语义与不支持能力。
+  - DEC-09/10 必须把 hook 变更标为高风险动作，固定输入，提供显式审批、备份、禁用开关和 rollback；错误 hook 不能把 Agent 启动永久卡死。
+  - DEC-11 必须区分“文件存在”“已注册”和“受控调用成功”；无法安全调用时只能报 inferred/unknown。
 - 需要避免：把目录名相同直接当同一资产；一次纳入所有配置导致范围失控。
 - 初步验收：给任意两个候选资产，系统能判定关系并解释依据；每个纳入类型都有 identity 与 version 规则。
 
