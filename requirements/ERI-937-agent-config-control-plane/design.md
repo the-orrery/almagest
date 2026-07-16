@@ -22,6 +22,8 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 4. 发生漂移时，差异来自 source、resolve、render、projection、live 还是 consumer runtime；
 5. personal/work 或 public/private 边界是否被违反。
 
+当前阶段采用“配置一致优先”：v1 先保证每个 target 的 declared → resolved → rendered → live 配置与其目标状态一致，并能在 apply 前报告差异、apply 后检查漂移。“一致”不是要求 Mac/Windows 或 personal/work 配置字节相同，而是各自 live 状态符合各自 overlay 后的目标。consumer runtime 是否实际加载、hook 是否执行成功、plugin 包是否安装并健康属于后续能力；保留在 16 项能力地图中，不自动进入 v1 `Must`。
+
 ## 已知目标拓扑
 
 | Host | OS | Consumer | 已知 lane | 仍需取证 |
@@ -97,31 +99,26 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 
 ### DEC-01 资产范围与身份
 
-- 状态：01A 待拍板；01B、01C 待给方案
+- 状态：01A 已拍板；01B、01C 待给方案
 - 决策轴：
   - 01A：v1 纳入哪些 asset 类型：skill、MCP、instructions、settings、hooks、plugins 或其它。
   - 01B：每种 asset 的 identity granularity 与 canonical ID 由哪些字段构成。
   - 01C：如何区分同一资产、版本/revision、consumer 派生物、冲突副本和无关同名资产。
-- 01A 已确认约束（decision draft v0.1，2026-07-16，approver: principal）：
-  - 范围至少覆盖 skills、MCP、instructions 和声明式 settings；原“只管 skills”与“skills + MCP”方案已拒绝。
-  - hooks 是 `Must`，不能因其具有可执行风险而整体推迟。
-  - plugins 是否作为一等资产仍未拍板；原 C/D 把 hooks 与 plugins 绑定，不能据此推导 plugins 已进入 `Must`。
-- 01A 重构后的候选：
+- 01A 决定（v0.2，2026-07-16，approver: principal）：选择 B——v1 纳管完整 Agent **配置面**，先保证配置一致；运行生命周期和行为正确性以后再考虑。
 
-| 候选 | Must | Later / Out | 新增能力与代价 |
+| 候选 | 配置范围 | 责任边界 | 结果 |
 |---|---|---|---|
-| A（推荐） | skills、MCP、instructions、settings、hooks | plugins 的安装/更新/启停生命周期 Later；Agent 二进制安装 Out | 控制核心配置和事件执行面；plugin 内容可拆成已知子资产治理，但暂不承担 package manager |
-| B | A + plugins 作为一等资产 | launch wrapper、alias、Agent binary Later/Out | 还要处理 plugin manifest、依赖、兼容矩阵、来源信任、安装/升级/卸载和嵌套资产 ownership |
-| C | B + wrapper、alias、Agent binary 等完整 Agent 运行资产 | 无预设 Later | 从配置控制面扩大为 Agent 环境管理器；主机安装、版本切换、进程与恢复边界显著扩大 |
+| A | skills、MCP、instructions、settings、hooks 配置 | 不纳管 plugin 配置 | 拒绝：plugins 也必须进入配置一致性范围 |
+| B | A + plugins 配置 | 保证 declared/resolved/rendered/live 配置一致；不负责 hook 执行、plugin 包安装/升级、依赖解析或运行结果 | **已选择** |
+| C | B + plugin 包、wrapper、alias、Agent binary 和实际运行行为 | 进一步负责安装、版本、进程、执行验证与恢复 | 拒绝作为 v1：超出“先保证配置一致” |
 
-- hooks 进入 `Must` 后接受的后续约束：
-  - DEC-01B/01C 必须定义 hook 的 event、scope、order、executable reference、revision/digest 和派生物身份。
-  - DEC-03 必须覆盖可执行 source 的信任、权限、secret/environment 暴露和审批。
-  - DEC-08/15 必须表达各 consumer 不同的 hook 事件、格式、顺序、失败语义与不支持能力。
-  - DEC-09/10 必须把 hook 变更标为高风险动作，固定输入，提供显式审批、备份、禁用开关和 rollback；错误 hook 不能把 Agent 启动永久卡死。
-  - DEC-11 必须区分“文件存在”“已注册”和“受控调用成功”；无法安全调用时只能报 inferred/unknown。
+- `Must`：skills、MCP、instructions、settings、hooks 配置、plugins 配置的声明、overlay、consumer 渲染、投影、diff 与漂移检查。
+- `Later`：hook 是否成功执行、plugin 包安装/升级/卸载及依赖、consumer 是否实际调用、运行健康与自动恢复。
+- `Out`（v1）：Agent binary、wrapper、shell alias、进程管理和完整主机环境管理。
+- B 与 C 的边界示例：B 证明“目标配置声明启用 plugin X、注册 hook Y，且目标文件与声明一致”；C 还要证明“plugin X 已正确安装并运行、hook Y 已执行成功、Agent binary 版本正确”。
+- 后果：DEC-11 的 runtime Effective 验证不属于 01A 的 v1 配置一致性承诺；后续单独决定是否列入 Later 或下一阶段，不能反向扩大本项范围。
 - 需要避免：把目录名相同直接当同一资产；一次纳入所有配置导致范围失控。
-- 初步验收：给任意两个候选资产，系统能判定关系并解释依据；每个纳入类型都有 identity 与 version 规则。
+- 初步验收：给任意两个候选配置资产，系统能判定关系并解释依据；每个纳入类型都有 identity 与 version 规则；对 hooks/plugins 只验证配置状态，不以实际执行结果作为本项成功条件。
 
 ### DEC-02 目标拓扑与隔离能力
 
