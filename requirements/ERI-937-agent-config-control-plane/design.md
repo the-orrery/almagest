@@ -14,13 +14,15 @@
 
 ## 目标与成功口径
 
-Agent 配置控制面应能对任意**已声明 target** 回答以下问题；target 的候选维度包括 host、OS、consumer、consumer version、profile、workspace 和 lane，最终键由 DEC-02 决定：
+Agent 配置控制面 v1 应能对任意**已声明 target** 回答以下问题；target 的候选维度包括 host、OS、consumer、consumer version、profile、workspace 和 lane，最终键由 DEC-02 决定：
 
 1. 目标应当拥有哪些资产，来自哪个权威 source 和 overlay；
 2. apply 前会 add/remove/change/shadow/block 什么，为什么；
-3. apply 后 live 状态与 consumer 实际消费状态是否符合目标；
-4. 发生漂移时，差异来自 source、resolve、render、projection、live 还是 consumer runtime；
+3. apply 后 live 配置与 active root/profile/lane 等绑定事实是否符合目标；
+4. 发生配置漂移时，差异来自 source、resolve、render、projection、live 还是绑定输入；
 5. personal/work 或 public/private 边界是否被违反。
+
+consumer 是否已 parsed/registered、discoverable/enabled、callable 或 observed-used，以及 runtime drift 如何归因，是控制面完整能力地图中的 `Later` 分支，不是 v1 配置一致性的成功门禁。后续可以拍板其证据合同，但不得反向阻塞 v1 的 plan/apply/config-drift 闭环。
 
 当前阶段采用“配置一致优先”：v1 先保证每个 target 的 declared → resolved → rendered → live 配置与其目标状态一致，并能在 apply 前报告差异、apply 后检查漂移。“一致”不是要求 Mac/Windows 或 personal/work 配置字节相同，而是各自 live 状态符合各自 overlay 后的目标。
 
@@ -36,10 +38,10 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 
 | Host | OS | Consumer | 已知 lane | 仍需取证 |
 |---|---|---|---|---|
-| Mac | macOS | Codex | personal + work | 产品版本、roots、precedence、profile、runtime probe；两条 lane 是否共享 global root |
-| Mac | macOS | QoderCLI | personal + work | 产品版本、多 roots、precedence、profile、frontmatter、runtime probe |
-| Windows | Windows | Codex | personal | 产品版本、roots、precedence、profile、runtime probe |
-| Windows | Windows | Claude，具体产品待确认 | personal | Claude Code/Desktop/其它、产品版本、roots、precedence、profile、runtime probe |
+| Mac | macOS | Codex | personal + work | v1：产品版本、roots、precedence、profile、两条 lane 是否共享 global root；Later：runtime probe |
+| Mac | macOS | QoderCLI | personal + work | v1：产品版本、多 roots、precedence、profile、frontmatter；Later：runtime probe |
+| Windows | Windows | Codex | personal | v1：产品版本、roots、precedence、profile；Later：runtime probe |
+| Windows | Windows | Claude，具体产品待确认 | personal | v1：Claude Code/Desktop/其它、产品版本、roots、precedence、profile；Later：runtime probe |
 
 这张表只记录已知消费范围。“文件写到了某个目录”不等于 consumer 已加载，也不证明 lane 隔离成立。
 
@@ -94,12 +96,34 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 | DEC-08 | Consumer 可见与渲染 | 多 root、shadow、frontmatter、格式转换后 consumer 看见什么 | per-consumer visibility/render contract |
 | DEC-09 | 变更预演 | apply 前必须报告并固定哪些差异、输入和风险 | 可审批且可复现的 plan contract |
 | DEC-10 | 安全实施 | ownership、计划等价、原子性、幂等、备份和恢复怎么做 | apply safety contract |
-| DEC-11 | Effective 验证 | 如何分级证明 Codex/Qoder/Claude 真正加载或使用 | runtime evidence contract |
+| DEC-11 | Effective 验证（Later） | 如何分级证明 Codex/Qoder/Claude 真正加载或使用 | runtime evidence contract，不作为 v1 gate |
 | DEC-12 | 漂移检查 | 查什么、何时查、谁负责、何时自动修 | drift/reconcile policy |
-| DEC-13 | 跨机协调 | 分发、离线、版本错位、receipt、汇总如何工作 | fleet coordination contract |
-| DEC-14 | 生命周期 | bootstrap、import、迁移、升级、废弃和恢复怎么走 | lifecycle state machine |
+| DEC-13 | 跨机配置一致性 | 分发、离线、版本错位、receipt、汇总如何工作 | cross-host config coordination contract |
+| DEC-14 | 配置资产生命周期 | bootstrap、import、迁移、升级、废弃和恢复怎么走 | config lifecycle state machine |
 | DEC-15 | Consumer 兼容与扩展 | 新 consumer/root/格式如何描述、接入和测试 | compatibility/extension contract |
 | DEC-16 | 审计与可解释性 | 谁在何时把什么从哪里投影到哪里，为什么生效 | audit/receipt/explain contract |
+
+### DEC-01A 选择 B 后的方向约束
+
+这张表只记录由 01A 已拍板边界直接推导出的阶段归类，不替代后续卡片的机制拍板。任何候选若要突破这里的 `Must / Later / Out`，必须显式重开 DEC-01A，不能在下游卡中顺手扩权。
+
+| ID | v1 posture | 不得漂移的边界 |
+|---|---|---|
+| DEC-02 | Must | target 必须覆盖 active config 绑定；不管理 consumer binary 生命周期 |
+| DEC-03 | Must | 管 source authority、revision/digest 与可执行配置信任；不因此承担包安装或服务运行 |
+| DEC-04 | Must | 管 personal/work 投影与防误投影；不把共享 root 伪装成物理隔离 |
+| DEC-05 | Must | 管 13 个配置域的 deterministic overlay；不 merge cache/session/generated state |
+| DEC-06 | Must | 管 secret schema/reference/local binding 与脱敏；secret value 仍由本机 credential provider 持有 |
+| DEC-07 | Must + Later | v1 盘点 source/resolved/rendered/live 和 6 类绑定事实；effective 高阶证据属于 Later |
+| DEC-08 | Must + Later | v1 做格式渲染、静态 visibility/shadow；consumer runtime 确认属于 Later |
+| DEC-09 | Must | plan 只覆盖受管配置投影及其绑定风险，不生成 runtime/host 生命周期动作 |
+| DEC-10 | Must | 原子性、备份和 rollback 只针对受管配置资源，不升级为整机事务或进程恢复 |
+| DEC-11 | Later | 可以定义 runtime evidence contract，但不能成为 v1 apply/config-drift 的前置 gate |
+| DEC-12 | Must + Later | source→live/binding drift 是 v1；effective/runtime drift 与自动恢复是 Later；daemon 生命周期 Out |
+| DEC-13 | Must | 两台机器各自达到目标配置并可汇总 receipt；不预设中央控制端，也不管理远端进程 |
+| DEC-14 | Must + Out | 管配置 bootstrap/import/migrate/deprecate/restore；host、binary、plugin package 生命周期 Out |
+| DEC-15 | Must + Later | config capability/adapter/fixture 是 v1；runtime probe 兼容属于 Later |
+| DEC-16 | Must + Later | v1 审计配置 plan/apply/verify；runtime failure/evidence 的审计扩展属于 Later |
 
 ## 决策卡
 
@@ -107,7 +131,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 
 ### DEC-01 资产范围与身份
 
-- 状态：01A 已拍板；01B、01C 待给方案
+- 状态：01A 已拍板；01B 待拍板；01C 待给方案
 - 决策轴：
   - 01A：v1 纳入哪些 asset 类型：skill、MCP、instructions、settings、hooks、plugins 或其它。
   - 01B：每种 asset 的 identity granularity 与 canonical ID 由哪些字段构成。
@@ -189,6 +213,23 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 - 后果：DEC-01B/01C 必须为 13 个配置域和 6 类观测事实定义 identity/version 关系；DEC-02、DEC-06—DEC-12 的候选生成必须使用受管配置、绑定观测、运行/生成状态三分模型。adapter 与 inventory 的范围扩大，但安装和运行责任不随之扩大。
 - 验收断言：系统能枚举每个 target 的 user-authored 配置、绑定输入和生成状态并明确分类；任何 active root/profile/override 未知时不得报告“无漂移”；每个纳入类型最终都具备 identity、version、overlay、render 和 ownership 规则。
 
+#### 01B 待拍板：identity granularity 与 canonical ID
+
+本轴只决定“什么变化后仍算同一个资产”以及 canonical ID 的稳定字段，不决定 revision/copy/conflict 的完整判定算法；后者留给 01C。已拍板的 01A 要求 identity 同时覆盖 13 个受管配置域与 6 类 target-scoped 观测事实。
+
+| 候选 | Canonical identity | 收益 | 主要问题 |
+|---|---|---|---|
+| A：物理位置 ID | `consumer + scope/root + path/config-key` | inventory 最直接，不需要额外 registry | 移路径、换 OS、换 root 就变成新资产；同一逻辑资产跨 Mac/Windows 无法对齐 |
+| B：单层逻辑 ID | `kind + name`，文件或顶层对象作为最小单元 | 简单、可移植，足以覆盖 skill/plugin/MCP 等命名对象 | settings/hooks/instructions 易碰撞或被迫整文件覆盖；无法稳定表达子资源与多投影 |
+| C：分层逻辑 ID + 投影实例 ID | logical asset 使用 `kind + namespace + name + optional stable subresource`；projection instance 另用 `asset_id + target_id + consumer_slot` | 路径、版本、source、target 变化不会误改逻辑身份；可表达 overlay、跨机同源和 consumer 派生物 | schema 较 B 复杂；ordered hooks/list item 等必须补显式稳定 ID |
+| D：内容寻址 ID | digest 直接作为 asset ID | 去重和完整性强，天然固定内容 | 每次编辑都变成新资产；人不可读；无法表达“同一资产的新 revision” |
+
+- 当前推荐：**C**。
+- C 的 granularity 规则：以“可独立声明、override、mask/remove 和审计”的最小语义资源为 identity 边界。命名对象使用对象 ID；map 使用稳定语义 key 或 adapter 声明的原子 object；有序列表使用显式 item ID，不使用数组下标；instructions 使用声明片段/文件级 ID，不给任意段落造 ID。
+- C 的字段边界：`source authority/location`、layer、revision/version/digest、host/OS、consumer version、root/path 都是 provenance、selector、revision 或 projection 属性，不进入 logical asset ID。DEC-02 尚未确定的 target key 只进入 projection/binding identity。
+- 观测事实：binary path、active profile、wrapper 解析等不冒充 portable asset；使用 `target_id + binding_kind + stable binding name` 标识 observation subject，并附采集时间和 evidence。
+- 初步验收：资产改路径、换 target、产生 consumer render 或内容 revision 后仍可追溯为同一 logical asset；两个无关同名对象不会因 basename 相同发生碰撞；任何 ID 不依赖数组下标、临时路径或 secret value。
+
 ### DEC-02 目标拓扑与隔离能力
 
 - 状态：待给方案
@@ -238,7 +279,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 - 依赖：DEC-03—DEC-05。
 - 决策轴：
   - 06A：secret value/reference、本机绝对路径、账号、OS/host 参数如何分类。
-  - 06B：各类值存在哪里、由谁提供、哪些 layer 允许覆盖。
+  - 06B：各类 reference/local binding 存在哪里、由谁提供、哪些 layer 允许覆盖；外部 credential provider 仍拥有 secret value 生命周期。
   - 06C：plan、diff、receipt、日志和错误信息如何脱敏。
   - 06D：缺值、引用失效或权限不足时如何 fail closed 并诊断。
 - 初步验收：portable source、rendered artifact 和 receipt 不泄漏 secret；本机路径不会误投影到其它 host。
@@ -248,7 +289,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 - 状态：待给方案
 - 依赖：DEC-01—DEC-06。
 - 决策轴：
-  - 07A：source、resolved、rendered、live、effective 哪些状态必须盘点。
+  - 07A：v1 对 source、resolved、rendered、live 和绑定事实盘点到什么粒度；Later 的 effective evidence 是否另表保存。
   - 07B：如何标注 managed、unmanaged、orphan、duplicate、unknown-owner。
   - 07C：如何标注 observed、inferred、unknown，以及采集时间、版本和证据来源。
   - 07D：发现边界、权限不足、不可访问 host 与部分结果如何表达。
@@ -263,7 +304,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
   - 08B：raw source 是否保持不变；Codex/Qoder/Claude 如何生成不同 derived artifact。
   - 08C：frontmatter key 如何保留、删除或翻译；如何评估 token/触发语义影响和审批 lossy transform。
   - 08D：MCP JSON/TOML、instructions import/拼接、settings 等 consumer 格式如何映射并保留 provenance/hash。
-- 初步验收：能列出每个 consumer 最终可见集合；同名项的 winner/shadow 可解释；派生差异可审阅、可复现、不反写 raw source。
+- 初步验收：能按声明的 roots/precedence 静态计算每个 consumer 的预期可见集合；同名项的 winner/shadow 可解释；派生差异可审阅、可复现、不反写 raw source。runtime 是否实际加载由 DEC-11 的 Later 证据确认。
 
 ### DEC-09 变更预演
 
@@ -279,7 +320,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 ### DEC-10 安全实施
 
 - 状态：待给方案
-- 依赖：DEC-09。
+- 依赖：DEC-09。这里只约束受管配置资源的 apply，不承担整机事务、binary/plugin package 安装或进程恢复。
 - 决策轴：
   - 10A：resource ownership 与非纳管资产保护边界。
   - 10B：apply 如何证明与获批 plan/hash 及固定输入完全等价。
@@ -287,9 +328,9 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
   - 10D：备份、rollback、部分失败状态、恢复与人工接管。
 - 初步验收：不会静默删除 unmanaged/unknown-owner 资产；部分失败可诊断且有确定恢复动作。
 
-### DEC-11 Effective 验证
+### DEC-11 Effective 验证（Later）
 
-- 状态：待给方案
+- 状态：待给方案；已由 DEC-01A 确认为 Later，不作为 v1 gate
 - 依赖：DEC-07、DEC-08、DEC-10。
 - 决策轴：
   - 11A：每个 asset/consumer 需要达到 present、parsed/registered、discoverable/enabled、callable、observed-used 中哪一级。
@@ -301,44 +342,44 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 ### DEC-12 漂移检查
 
 - 状态：待给方案
-- 依赖：DEC-07—DEC-11。
+- 依赖：v1 的 source→live/binding drift 依赖 DEC-07—DEC-10；Later 的 effective/runtime drift 另依赖 DEC-11。
 - 决策轴：
-  - 12A：source/resolved/rendered/live/effective 之间比较哪些边。
-  - 12B：检查由手动、hook、定时任务还是 daemon 触发；退出码和告警语义。
+  - 12A：v1 在 source/resolved/rendered/live/binding 之间比较哪些边；Later 是否追加 effective 边。
+  - 12B：检查由手动、hook、定时任务还是外部 daemon 触发；退出码和告警语义。Almagest 不负责 daemon 生命周期。
   - 12C：如何归因、分级、指派 owner；哪些漂移允许自动修，哪些必须人工审批。
-  - 12D：consumer runtime 漂移与文件漂移如何区分并关联。
+  - 12D：Later 如何把 consumer runtime 漂移与配置漂移区分并关联，不得反向改变 v1 成功口径。
 - 初步验收：报告指出差异层、责任 source、证据、风险和下一动作；破坏性修复不会静默发生。
 
-### DEC-13 跨机协调
+### DEC-13 跨机配置一致性
 
 - 状态：待给方案
 - 依赖：DEC-02—DEC-12。
 - 决策轴：
-  - 13A：每台机器独立 pull+plan+apply，还是存在控制端；边界和信任如何划分。
+  - 13A：每台机器独立 pull+plan+apply，还是存在只协调配置/receipt 的控制端；边界和信任如何划分。任何选项都不管理远端 Agent 进程。
   - 13B：配置/引用、policy、adapter 与 source revision 如何分发和锁定。
-  - 13C：离线、版本错位、失败重试、receipt 上传和跨机对比如何处理。
+  - 13C：离线、配置/adapter 版本错位、apply 失败重试、receipt 上传和跨机对比如何处理。
   - 13D：汇总哪些元数据；如何避免把 private/work 内容带到错误 lane 或中央端。
 - 初步验收：不暴露 private/work 内容也能判断 Mac 与 Windows 是否处于各自正确 target 状态。
 
-### DEC-14 生命周期
+### DEC-14 配置资产生命周期
 
 - 状态：待给方案
 - 依赖：DEC-01—DEC-13。
 - 决策轴：
   - 14A：首次 bootstrap、现状 import、adopt/unmanaged 的状态机。
   - 14B：schema、policy、renderer/adapter 与 consumer version 升级如何迁移。
-  - 14C：asset deprecate、remove/mask、host 退役与历史 receipt 如何处理。
-  - 14D：host 重装、灾难恢复、回退旧版本和重建 effective evidence 如何走。
-- 初步验收：全新、已有脏状态、升级和恢复场景都有 dry-run、停止条件、回滚或恢复路径。
+  - 14C：asset deprecate、remove/mask、target 配置退役与历史 receipt 如何处理。
+  - 14D：host 重装后如何重建目标配置、配置灾难恢复、回退旧配置版本，以及 Later 的 effective evidence 是否需要重建；不管理 host 重装本身。
+- 初步验收：全新配置、已有脏状态、配置 schema/adapter 升级和配置恢复场景都有 dry-run、停止条件、回滚或恢复路径。
 
 ### DEC-15 Consumer 兼容与扩展
 
 - 状态：待给方案
 - 依赖：DEC-07—DEC-14。
 - 决策轴：
-  - 15A：consumer capability manifest 至少声明哪些 roots、formats、precedence、scope、probe 与限制。
+  - 15A：consumer capability manifest 至少声明哪些 roots、formats、precedence、scope 与限制；runtime probe 作为 Later capability 单独声明。
   - 15B：新增 consumer 使用数据声明、adapter/plugin 还是核心改动；这里只拍能力契约，不先锁定机制。
-  - 15C：跨 OS fixture、round-trip、lossy transform、runtime evidence 和兼容版本矩阵如何测试。
+  - 15C：v1 如何测试跨 OS fixture、round-trip、lossy transform 和配置兼容版本矩阵；Later 如何追加 runtime evidence fixture。
   - 15D：consumer 行为变化时如何探测 incompatibility、阻断投影和升级契约。
 - 初步验收：新增 consumer 的影响面和证据要求明确；未声明能力或不兼容版本 fail closed。
 
@@ -349,7 +390,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 - 决策轴：
   - 16A：audit/receipt 保存哪些 actor、time、source/digest、policy、plan、target、action、result 和 evidence。
   - 16B：记录存在哪里、保留多久、如何脱敏和防篡改。
-  - 16C：explain 如何回答 identity、provenance、shadow、block、drift 和 runtime failure。
+  - 16C：v1 explain 如何回答 identity、provenance、shadow、block 和 config/binding drift；Later 如何追加 runtime failure/evidence。
   - 16D：跨机聚合、离线 receipt、schema 升级和审计记录自身生命周期如何处理。
 - 初步验收：能回答“谁在何时基于哪个固定输入/plan，把什么投影到哪个 target，结果为何生效或失败”。
 
@@ -359,8 +400,8 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 |---|---|---|---|
 | target 应有资产及其 authority/overlay | DEC-01—DEC-06 | 13 个受管配置域、6 类绑定/依赖观测事实；四个已知 consumer | capability spec assertion + fixture |
 | apply 前完整说明变化与原因 | DEC-07—DEC-10 | 每个 host/consumer/lane | plan contract + golden plan |
-| apply 后证明 live 与实际消费 | DEC-07、DEC-08、DEC-11 | Mac Codex/Qoder；Windows Codex/Claude | inventory + 分级 runtime probe |
-| 定位 source 到 runtime 的漂移层 | DEC-07—DEC-12 | 每种状态边和 asset 类型 | drift matrix + failure fixture |
+| v1 apply 后证明 live 配置与 active binding 正确 | DEC-07—DEC-10、DEC-12 | Mac Codex/Qoder；Windows Codex/Claude | config/binding inventory + drift fixture |
+| Later 证明 consumer 实际消费并定位 runtime drift | DEC-11、DEC-12 | 启用 runtime evidence 的 consumer/asset | 分级 runtime probe + failure fixture |
 | 防止 personal/work、public/private 越界 | DEC-02—DEC-06、DEC-09—DEC-13 | 正向与负向投影场景 | policy denial + receipt |
 
 DEC-01A 的实际范围已经展开；DEC-01B/01C 拍板后还需补 identity/version 关系。DEC-02 与 DEC-11 拍板后必须把四个 consumer 的确切产品/版本/target/probe 填入矩阵。上游卡重开时，矩阵用于列出受影响卡和证据。
@@ -372,11 +413,11 @@ DEC-01A 的实际范围已经展开；DEC-01B/01C 拍板后还需补 identity/ve
 | A-01 | Assumption | open | high | Mac personal/work 可能在同一 Codex/Qoder global root 中形成 union | principal | DEC-02/04 明示隔离语义；实际 root 不支持时标记 unsupported/block | DEC-02、DEC-04 |
 | A-02 | Assumption | open | high | private shared layer 可能同时进入 personal/work，也可能必须拆为 private-personal/private-work | principal | 明示 ownership、继承和禁止边 | DEC-03—DEC-05 |
 | R-01 | Risk | open | critical | 共享 root 被误当强隔离，可能把 work-only 资产泄漏到 personal/Windows | Codex | 负例 fixture；能力不足时 fail closed；不得仅靠标签宣称隔离 | DEC-02、DEC-04、DEC-09 |
-| R-02 | Risk | open | medium | vendor 无 runtime probe，文件正确却无法证明 consumer 生效 | Codex | 使用 evidence ladder；最高只报 inferred/unknown | DEC-11 |
-| I-01 | Issue | open | high | QoderCLI 的真实 roots、precedence、frontmatter、profile 和 runtime inventory 未取证 | Codex | 固定产品版本并取得官方/实机证据 | DEC-08、DEC-11 前 |
-| I-02 | Issue | open | high | Mac/Windows Codex 的真实 roots、precedence、profile 与 runtime probe 未完整取证 | Codex | 分 OS/版本取得官方/实机证据 | DEC-02、DEC-08、DEC-11 前 |
-| I-03 | Issue | open | high | Windows “Claude” 的具体产品、版本、roots、profile 与 probe 未确认 | principal + Codex | principal 确认产品；Codex 完成取证 | DEC-02 前 |
-| D-01 | Dependency | open | medium | consumer roots、格式和 runtime 行为依赖外部产品版本 | Codex | 建版本矩阵与 fixture；指定复核触发条件 | DEC-08、DEC-11、DEC-15 |
+| R-02 | Risk | open | medium | Later：vendor 无 runtime probe，文件正确却无法证明 consumer 生效 | Codex | 使用 evidence ladder；最高只报 inferred/unknown；不阻塞 v1 配置闭环 | DEC-11 |
+| I-01 | Issue | open | high | QoderCLI 的真实 roots、precedence、frontmatter、profile 未完整取证；runtime inventory 属 Later | Codex | v1 固定产品版本并取得 roots/precedence 实机证据；Later 再补 probe | DEC-08、DEC-11 |
+| I-02 | Issue | open | high | Mac/Windows Codex 的真实 roots、precedence、profile 未完整取证；runtime probe 属 Later | Codex | v1 分 OS/版本取得配置证据；Later 再补 probe | DEC-02、DEC-08、DEC-11 |
+| I-03 | Issue | open | high | Windows “Claude” 的具体产品、版本、roots、profile 未确认；runtime probe 属 Later | principal + Codex | principal 确认产品；Codex 先完成 v1 配置取证 | DEC-02 前 |
+| D-01 | Dependency | open | medium | consumer roots/格式及 Later runtime 行为依赖外部产品版本 | Codex | 分开建立 config capability matrix 与 Later runtime fixture；指定复核触发条件 | DEC-08、DEC-11、DEC-15 |
 | S-01 | Scope | resolved | high | v1 是否超出 skill，纳入 MCP、instructions、settings 等 | principal | 2026-07-16 DEC-01A v0.3 选择 B：13 个 user-authored 配置域纳管，6 类绑定/依赖事实观测；runtime/host 生命周期不接管 | DEC-01 |
 
 最终验收时，Assumption 必须已验证或转成显式约束；Risk 必须已接受或缓解；Issue 必须关闭或转单；Dependency 必须有 owner、版本边界和复核条件。

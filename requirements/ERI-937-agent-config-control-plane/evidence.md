@@ -41,6 +41,22 @@
 - 6 类启动绑定与依赖事实必须盘点并参与 plan/verify，但 v1 不负责安装、升级、进程或自动恢复。
 - A 因继续漏掉有效配置来源而拒绝；C 因扩成 runtime/host manager 而拒绝。
 
+## DEC-01A 对后续决策的方向一致性体检（2026-07-16）
+
+本次按文档自身契约做定向 `doc-xray`：读者动作是 principal 逐轴拍板；生命周期是能力决策前/决策中；交付形态是 living decision workbench；成功 oracle 是后续候选不能静默突破已拍板的 `Must / Later / Out`。扫描覆盖 DEC-02—DEC-16，不评实现优劣，也不替 principal 选择尚未拍板的机制。
+
+| 严重度 | 原位置/问题 | 相对 DEC-01A B 的偏离 | 修正 |
+|---|---|---|---|
+| BLOCKER | 目标与需求追踪矩阵把“consumer 实际消费/runtime drift”写进统一成功口径 | 把 DEC-11 的 Later 证据变成 v1 隐性 gate | v1 oracle 改为 live config + active binding；actual consumption/runtime drift 单列 Later |
+| MAJOR | DEC-11 未标阶段，DEC-12 整体依赖 DEC-11 | v1 config drift 会被 runtime probe 阻塞 | DEC-11 标为 Later；DEC-12 拆为 v1 source→live/binding 与 Later effective/runtime 两条依赖 |
+| MAJOR | DEC-13 使用 `fleet coordination`，未先锁定配置边界 | 容易把跨机配置一致性偷换成中央 runtime fleet | 改为“跨机配置一致性”；控制端只可作为待拍板配置/receipt 协调选项，不管理远端进程 |
+| MAJOR | DEC-14 包含 host 退役、重装和灾难恢复的宽泛措辞 | 容易扩成完整主机生命周期管理 | 改为配置资产 lifecycle 与“host 重装后的配置重建”；host 重装本身明确 Out |
+| MAJOR | DEC-06/10/15/16 未逐项重申 secret、整机事务、runtime fixture/evidence 边界 | 下游候选可能在局部重新引入 C 的责任 | 分别限定 credential provider、受管配置事务、Later probe、Later runtime audit |
+
+修正后，DEC-02—DEC-10 形成 v1 配置闭环；DEC-11 明确为 Later；DEC-12—DEC-16 按配置主线与 runtime 扩展拆层。16 项能力仍保留，因为完整能力地图需要说明 Later/Out，但未拍板卡不得借“完整性”扩张 v1。
+
+本次 semantic finding 由 principal 已拍板的 01A 边界直接复核，未做无证据的文风改写；体检目的为范围一致性，不输出容易误导的综合文风分数。
+
 ## 验证记录
 
 | 检查 | 预期 | 实际结果 |
@@ -54,6 +70,9 @@
 | 01A v0.3 决策记录 | B 的范围、理由、被拒项、Must/Later/Out、后果和验收均可审计 | 通过：01A 标记 `已拍板`；S-01 标记 `resolved`；需求追踪矩阵已展开 13 个配置域与 6 类观测事实 |
 | 01A 仓级回归 | 补充范围文档不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 01A Git 范围 | 只修改本需求的设计与证据 | 通过：当前 diff 仅 `design.md`、`evidence.md`；无实现或 live 配置 |
+| 后续方向一致性 | DEC-02—DEC-16 均显式服从 B，且不再混淆 v1/Later/Out | 通过：16 个总览项、16 张决策卡、15 条 B 影响约束；旧 runtime/fleet/host 宽口径无残留命中 |
+| 01B 候选完整性 | 候选互斥，涵盖物理、单层逻辑、分层逻辑+投影、内容寻址四种 identity 模型 | 通过：A/B/C/D 均含 canonical fields、收益与主要问题；C 另含 granularity、字段边界、观测 identity 与验收断言 |
+| 本轮仓级回归 | 方向修正与 01B 候选不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 
 ## 验证边界
 
