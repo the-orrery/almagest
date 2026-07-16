@@ -34,6 +34,13 @@
 
 官方文档与本机盘点共同证明：配置面不能只枚举 skills/MCP/instructions/settings/hooks/plugins 六个名词；还必须显式建模 scope/precedence、profile/override、permissions/trust、agents、commands/prompts/output、marketplace/lock，以及决定 active config 的启动绑定。
 
+### DEC-01A v0.3 拍板结果
+
+- 2026-07-16，principal 明示选择 B：全部 user-authored Agent 配置 + 绑定观测。
+- 13 个受管配置域全部进入 v1 `Must`，包括 commands/prompts/output 和客户端偏好中的 user-authored 值；不复制其生成状态。
+- 6 类启动绑定与依赖事实必须盘点并参与 plan/verify，但 v1 不负责安装、升级、进程或自动恢复。
+- A 因继续漏掉有效配置来源而拒绝；C 因扩成 runtime/host manager 而拒绝。
+
 ## 验证记录
 
 | 检查 | 预期 | 实际结果 |
@@ -43,7 +50,8 @@
 | 文档一致性 | 无旧 solution-owner 标题、旧 bundle slug 或“RAID 清零”口径 | 通过：`rg` 无命中；`git diff --check` 通过 |
 | 仓级检查 | 文档新增不破坏现有测试与 lint | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 初始 Git 范围 | 只包含本需求 bundle | 通过：初始提交仅 5 个 bundle 文件，共 462 行新增；无实现或 live 配置 |
-| 01A 边界一致性 | 不再把配置绑定整体列为 `Out`，并完整区分 managed/observed/generated | 通过：三类边界、13 个配置域、6 类必须观测对象和 5 类明确不负责项均已写入；01A 状态改为 `需重开` |
+| 01A 边界重开证据 | 不再把配置绑定整体列为 `Out`，并完整区分 managed/observed/generated | 通过：三类边界、13 个配置域、6 类必须观测对象和 5 类明确不负责项均已写入；拍板前曾将 01A 标记为 `需重开`，避免沿用不完整范围 |
+| 01A v0.3 决策记录 | B 的范围、理由、被拒项、Must/Later/Out、后果和验收均可审计 | 通过：01A 标记 `已拍板`；S-01 标记 `resolved`；需求追踪矩阵已展开 13 个配置域与 6 类观测事实 |
 | 01A 仓级回归 | 补充范围文档不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 01A Git 范围 | 只修改本需求的设计与证据 | 通过：当前 diff 仅 `design.md`、`evidence.md`；无实现或 live 配置 |
 
@@ -55,6 +63,6 @@
 
 ## 尚未产生的证据
 
-- 01A v0.3 范围拍板和其余 15 项拍板结果：后续逐项写入 `design.md`。
+- 01B、01C 与 DEC-02—DEC-16 的拍板结果：后续逐项写入 `design.md`。
 - capability spec / ADR：所有相关决定稳定后再蒸馏。
 - 实现与 runtime 验证：不属于本设计阶段。

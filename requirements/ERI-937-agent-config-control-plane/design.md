@@ -107,7 +107,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 
 ### DEC-01 资产范围与身份
 
-- 状态：01A 需重开；01B、01C 待给方案
+- 状态：01A 已拍板；01B、01C 待给方案
 - 决策轴：
   - 01A：v1 纳入哪些 asset 类型：skill、MCP、instructions、settings、hooks、plugins 或其它。
   - 01B：每种 asset 的 identity granularity 与 canonical ID 由哪些字段构成。
@@ -147,8 +147,8 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 | Hooks | 事件、matcher、顺序、类型、timeout、command/prompt/agent/http/MCP target，以及受管 hook script 内容 | 受管配置；是否执行、退出码和副作用属于 Later |
 | Plugins、extensions 与 marketplace | manifest、source/ref/version constraint、marketplace/registry、enabled state、override、plugin 所带 skills/agents/hooks/MCP/apps/LSP/bin 声明 | 受管配置；实际安装包、cache、依赖安装和运行健康只观测或 Later |
 | 自定义 agents/subagents | role、description、instructions、model、tools/MCP、skills、permissions、sandbox、并发/深度限制 | 受管配置 |
-| Commands、prompts 与输出交互 | custom commands/prompts、output styles、status line、notification command；已废弃 surface 仍需 inventory/migrate | 是否全部纳入仍需拍板；它们确实会改变 Agent 交互或调用入口，不能漏列 |
-| Agent 客户端偏好 | CLI/TUI/IDE language、theme、layout、更新频道、遥测、索引等 user-authored settings | 是否纳入仍需拍板；需要区分 Agent 行为配置与纯 UI 偏好 |
+| Commands、prompts 与输出交互 | custom commands/prompts、output styles、status line、notification command；已废弃 surface 仍需 inventory/migrate | 受管配置；废弃项的迁移时机由 DEC-14 决定，不得因废弃而漏盘点 |
+| Agent 客户端偏好 | CLI/TUI/IDE language、theme、layout、更新频道、遥测、索引等 user-authored settings | 受管配置；只管理用户声明值，不同步 telemetry event、index 或其它生成数据 |
 | Secret 与本地参数 | token、OAuth 状态、账号、credential store、绝对路径、machine ID、proxy/local endpoint | 只受管 schema、reference、required/optional 和本地绑定；不跨 lane/host 复制 secret value |
 | 控制面元数据 | asset identity、source authority、digest/revision、adapter/schema version、ownership、lock、policy 与 receipt | Almagest 自身必须受管，否则无法解释或重现配置 |
 
@@ -171,7 +171,7 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 - cache、log、history、transcript、session、telemetry event、代码索引和模型缓存等生成状态的一致化。
 - 整机 dotfiles、包管理器、shell、PATH、代理、系统服务和 OS 策略的通用管理；只有与 Agent target 绑定直接相关的最小片段进入上面的受管/观测范围。
 
-#### 01A v0.3 待拍板候选
+#### 01A v0.3 已拍板：B
 
 | 候选 | 范围 | 主要代价 |
 |---|---|---|
@@ -179,10 +179,15 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 | B：全部 user-authored Agent 配置 + 绑定观测 | 纳入上面全量候选清单；管理配置声明，观测 binary/安装包/依赖和启动绑定，不管理其生命周期 | adapter 和 inventory 范围更大；必须把“managed / observed / generated”标清 |
 | C：Agent runtime fleet | B + binary/plugin/依赖安装、进程、执行健康、自动恢复 | 重新进入此前否决的运行平台范围，明显超出“先保证配置一致” |
 
-- 当前推荐：**B**。它修复漏项但不扩成 host/runtime manager；核心原则是“所有 user-authored Agent 配置都列入，所有决定配置消费结果的绑定都观测，所有生成状态与生命周期都不接管”。
+- 决定（v0.3，2026-07-16，approver: principal）：选择 **B——全部 user-authored Agent 配置 + 绑定观测**。核心原则是“所有 user-authored Agent 配置都列入，所有决定配置消费结果的绑定都观测，所有生成状态与生命周期都不接管”。
+- 理由：B 修复旧清单漏项，能发现 active root/profile/override、wrapper/alias/env 等造成的配置漂移，同时不把 Almagest 扩成 binary、plugin、进程和主机环境的生命周期管理平台。
+- 被拒选项：A 因无法覆盖配置绑定、commands/UX 等完整有效配置而拒绝；C 因引入安装、进程、执行健康和自动恢复责任，超出“配置一致优先”而拒绝。
+- `Must`：上表 13 个配置域的声明、overlay、consumer render、projection、diff 与漂移检查；并盘点上表 6 类绑定/依赖事实。commands/prompts/output 与客户端偏好中的 user-authored 值明确纳入，不再留待本项后续拍板。
+- `Later`：consumer 是否实际 discover/call、hook/skill/plugin/MCP 是否成功执行、安装依赖是否健康、runtime probe 与自动恢复；具体证据等级由 DEC-11 决定。
+- `Out`：binary/plugin/系统依赖/模型安装升级、进程生命周期、业务执行正确性、生成状态一致化和整机通用环境管理；但其与 target 直接相关的最小事实仍须观测。
 - B 的边界示例：系统证明“目标声明启用 plugin X、当前安装版本为 V、注册 hook Y、active profile 为 P，live 配置与声明一致”；它不承诺安装 X、启动相关进程或证明 Y 已成功执行业务逻辑。
-- 重开影响：只有 DEC-01A；DEC-01B/01C 尚未拍板，无需撤销下游决定。DEC-02、DEC-06—DEC-12 的候选生成必须使用修正后的三类对象。
-- 初步验收：系统能枚举每个 target 的 user-authored 配置、绑定输入和生成状态并明确分类；任何 active root/profile/override 未知时不得报告“无漂移”；每个纳入类型都有 identity、version、overlay、render 和 ownership 规则。
+- 后果：DEC-01B/01C 必须为 13 个配置域和 6 类观测事实定义 identity/version 关系；DEC-02、DEC-06—DEC-12 的候选生成必须使用受管配置、绑定观测、运行/生成状态三分模型。adapter 与 inventory 的范围扩大，但安装和运行责任不随之扩大。
+- 验收断言：系统能枚举每个 target 的 user-authored 配置、绑定输入和生成状态并明确分类；任何 active root/profile/override 未知时不得报告“无漂移”；每个纳入类型最终都具备 identity、version、overlay、render 和 ownership 规则。
 
 ### DEC-02 目标拓扑与隔离能力
 
@@ -352,13 +357,13 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 
 | 用户成功口径 | 主责任卡 | 需覆盖对象 | 最终证据 |
 |---|---|---|---|
-| target 应有资产及其 authority/overlay | DEC-01—DEC-06 | DEC-01 纳入的每种 asset；四个已知 consumer | capability spec assertion + fixture |
+| target 应有资产及其 authority/overlay | DEC-01—DEC-06 | 13 个受管配置域、6 类绑定/依赖观测事实；四个已知 consumer | capability spec assertion + fixture |
 | apply 前完整说明变化与原因 | DEC-07—DEC-10 | 每个 host/consumer/lane | plan contract + golden plan |
 | apply 后证明 live 与实际消费 | DEC-07、DEC-08、DEC-11 | Mac Codex/Qoder；Windows Codex/Claude | inventory + 分级 runtime probe |
 | 定位 source 到 runtime 的漂移层 | DEC-07—DEC-12 | 每种状态边和 asset 类型 | drift matrix + failure fixture |
 | 防止 personal/work、public/private 越界 | DEC-02—DEC-06、DEC-09—DEC-13 | 正向与负向投影场景 | policy denial + receipt |
 
-DEC-01 拍板后必须把实际 asset 类型展开进矩阵；DEC-02 与 DEC-11 拍板后必须把四个 consumer 的确切产品/版本/target/probe 填入矩阵。上游卡重开时，矩阵用于列出受影响卡和证据。
+DEC-01A 的实际范围已经展开；DEC-01B/01C 拍板后还需补 identity/version 关系。DEC-02 与 DEC-11 拍板后必须把四个 consumer 的确切产品/版本/target/probe 填入矩阵。上游卡重开时，矩阵用于列出受影响卡和证据。
 
 ## RAID 台账
 
@@ -372,7 +377,7 @@ DEC-01 拍板后必须把实际 asset 类型展开进矩阵；DEC-02 与 DEC-11 
 | I-02 | Issue | open | high | Mac/Windows Codex 的真实 roots、precedence、profile 与 runtime probe 未完整取证 | Codex | 分 OS/版本取得官方/实机证据 | DEC-02、DEC-08、DEC-11 前 |
 | I-03 | Issue | open | high | Windows “Claude” 的具体产品、版本、roots、profile 与 probe 未确认 | principal + Codex | principal 确认产品；Codex 完成取证 | DEC-02 前 |
 | D-01 | Dependency | open | medium | consumer roots、格式和 runtime 行为依赖外部产品版本 | Codex | 建版本矩阵与 fixture；指定复核触发条件 | DEC-08、DEC-11、DEC-15 |
-| S-01 | Scope | open | high | v1 是否超出 skill，纳入 MCP、instructions、settings 等 | principal | DEC-01 明示 Must/Later/Out | DEC-01 |
+| S-01 | Scope | resolved | high | v1 是否超出 skill，纳入 MCP、instructions、settings 等 | principal | 2026-07-16 DEC-01A v0.3 选择 B：13 个 user-authored 配置域纳管，6 类绑定/依赖事实观测；runtime/host 生命周期不接管 | DEC-01 |
 
 最终验收时，Assumption 必须已验证或转成显式约束；Risk 必须已接受或缓解；Issue 必须关闭或转单；Dependency 必须有 owner、版本边界和复核条件。
 
