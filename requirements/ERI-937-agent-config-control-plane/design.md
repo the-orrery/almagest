@@ -131,7 +131,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 
 ### DEC-01 资产范围与身份
 
-- 状态：01A 已拍板；01B 待拍板；01C 待给方案
+- 状态：01A、01B 已拍板；01C 待给方案
 - 决策轴：
   - 01A：v1 纳入哪些 asset 类型：skill、MCP、instructions、settings、hooks、plugins 或其它。
   - 01B：每种 asset 的 identity granularity 与 canonical ID 由哪些字段构成。
@@ -210,10 +210,10 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - `Later`：consumer 是否实际 discover/call、hook/skill/plugin/MCP 是否成功执行、安装依赖是否健康、runtime probe 与自动恢复；具体证据等级由 DEC-11 决定。
 - `Out`：binary/plugin/系统依赖/模型安装升级、进程生命周期、业务执行正确性、生成状态一致化和整机通用环境管理；但其与 target 直接相关的最小事实仍须观测。
 - B 的边界示例：系统证明“目标声明启用 plugin X、当前安装版本为 V、注册 hook Y、active profile 为 P，live 配置与声明一致”；它不承诺安装 X、启动相关进程或证明 Y 已成功执行业务逻辑。
-- 后果：DEC-01B/01C 必须为 13 个配置域和 6 类观测事实定义 identity/version 关系；DEC-02、DEC-06—DEC-12 的候选生成必须使用受管配置、绑定观测、运行/生成状态三分模型。adapter 与 inventory 的范围扩大，但安装和运行责任不随之扩大。
+- 后果：DEC-01B 已为 13 个配置域和 6 类观测事实确定 identity 边界；DEC-01C 继续定义 version/derivation/conflict 关系。DEC-02、DEC-06—DEC-12 的候选生成必须使用受管配置、绑定观测、运行/生成状态三分模型。adapter 与 inventory 的范围扩大，但安装和运行责任不随之扩大。
 - 验收断言：系统能枚举每个 target 的 user-authored 配置、绑定输入和生成状态并明确分类；任何 active root/profile/override 未知时不得报告“无漂移”；每个纳入类型最终都具备 identity、version、overlay、render 和 ownership 规则。
 
-#### 01B 待拍板：identity granularity 与 canonical ID
+#### 01B 已拍板：分层逻辑 ID + 投影实例 ID
 
 本轴只决定“什么变化后仍算同一个资产”以及 canonical ID 的稳定字段，不决定 revision/copy/conflict 的完整判定算法；后者留给 01C。已拍板的 01A 要求 identity 同时覆盖 13 个受管配置域与 6 类 target-scoped 观测事实。
 
@@ -224,11 +224,17 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | C：分层逻辑 ID + 投影实例 ID | logical asset 使用 `kind + namespace + name + optional stable subresource`；projection instance 另用 `asset_id + target_id + consumer_slot` | 路径、版本、source、target 变化不会误改逻辑身份；可表达 overlay、跨机同源和 consumer 派生物 | schema 较 B 复杂；ordered hooks/list item 等必须补显式稳定 ID |
 | D：内容寻址 ID | digest 直接作为 asset ID | 去重和完整性强，天然固定内容 | 每次编辑都变成新资产；人不可读；无法表达“同一资产的新 revision” |
 
-- 当前推荐：**C**。
+- 决定（v0.1，2026-07-16，approver: principal）：选择 **C——分层逻辑 ID + 投影实例 ID**。logical asset 使用 `kind + namespace + name + optional stable subresource`；projection instance 使用 `asset_id + target_id + consumer_slot`。逻辑身份回答“它是否仍是同一项资产”，投影身份回答“这项资产被放到哪个 target 的哪个 consumer 槽位”。
+- 理由：C 是唯一同时覆盖命名资产、字段/片段级配置、多 target 投影和跨 consumer 派生物，且不把路径、内容版本或主机属性误当逻辑身份的候选。它能支撑 01A 已纳入的 settings、hooks、instructions 等复杂配置，也能让 skill、MCP、plugin 等天然命名对象保持简单。
+- 被拒选项：A 因路径/root/OS 变化会制造伪“新资产”而拒绝；B 因 settings、hooks、instructions 容易退化为整文件覆盖，且多投影不是一等对象而拒绝；D 因内容一变就失去同一资产的版本连续性而拒绝作为 logical identity。revision 与完整性机制不由 01B 决定，留给 01C。
+- `Must`：logical asset 与 projection instance 使用不同 ID 空间；所有受管配置都能映射到稳定 logical ID；所有 target 投影都能映射到稳定 projection ID；有序项、命名片段和 adapter 原子对象不得依赖数组下标或临时路径。
+- `Later`：DEC-11 引入的 runtime evidence 可以引用 logical/projection ID，并为 observation 增加证据实例；不得反向改变本次 logical identity。
+- `Out`：把 digest、live path、root、host/OS、consumer version、layer、secret value 或数组下标直接作为 logical asset ID。
 - C 的 granularity 规则：以“可独立声明、override、mask/remove 和审计”的最小语义资源为 identity 边界。命名对象使用对象 ID；map 使用稳定语义 key 或 adapter 声明的原子 object；有序列表使用显式 item ID，不使用数组下标；instructions 使用声明片段/文件级 ID，不给任意段落造 ID。
 - C 的字段边界：`source authority/location`、layer、revision/version/digest、host/OS、consumer version、root/path 都是 provenance、selector、revision 或 projection 属性，不进入 logical asset ID。DEC-02 尚未确定的 target key 只进入 projection/binding identity。
 - 观测事实：binary path、active profile、wrapper 解析等不冒充 portable asset；使用 `target_id + binding_kind + stable binding name` 标识 observation subject，并附采集时间和 evidence。
-- 初步验收：资产改路径、换 target、产生 consumer render 或内容 revision 后仍可追溯为同一 logical asset；两个无关同名对象不会因 basename 相同发生碰撞；任何 ID 不依赖数组下标、临时路径或 secret value。
+- 后果：DEC-01C 必须在 logical identity 之上定义 revision、consumer render、copy/conflict 和同名隔离，不得再用 digest 替代 logical ID；DEC-02 必须提供稳定 `target_id`；DEC-05/08/10/12/16 的 overlay、render、apply、drift 和 receipt 必须分别引用 logical/projection ID。adapter/schema 需要为可独立覆盖的有序项和片段提供稳定 ID，并承担一次性迁移成本。
+- 验收断言：资产改路径、换 target、产生 consumer render 或内容 revision 后仍可追溯为同一 logical asset；同一 logical asset 的两个 target/consumer 投影具有不同 projection ID；两个无关同名对象不会因 basename 相同发生碰撞；任何 ID 不依赖数组下标、临时路径、secret value 或内容 digest。
 
 ### DEC-02 目标拓扑与隔离能力
 
@@ -404,7 +410,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | Later 证明 consumer 实际消费并定位 runtime drift | DEC-11、DEC-12 | 启用 runtime evidence 的 consumer/asset | 分级 runtime probe + failure fixture |
 | 防止 personal/work、public/private 越界 | DEC-02—DEC-06、DEC-09—DEC-13 | 正向与负向投影场景 | policy denial + receipt |
 
-DEC-01A 的实际范围已经展开；DEC-01B/01C 拍板后还需补 identity/version 关系。DEC-02 与 DEC-11 拍板后必须把四个 consumer 的确切产品/版本/target/probe 填入矩阵。上游卡重开时，矩阵用于列出受影响卡和证据。
+DEC-01A 的实际范围已经展开，DEC-01B 已固定 identity 关系；DEC-01C 拍板后补齐 version/derivation/conflict 关系。DEC-02 与 DEC-11 拍板后必须把四个 consumer 的确切产品/版本/target/probe 填入矩阵。上游卡重开时，矩阵用于列出受影响卡和证据。
 
 ## RAID 台账
 

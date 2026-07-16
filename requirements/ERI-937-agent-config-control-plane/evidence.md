@@ -57,6 +57,14 @@
 
 本次 semantic finding 由 principal 已拍板的 01A 边界直接复核，未做无证据的文风改写；体检目的为范围一致性，不输出容易误导的综合文风分数。
 
+## DEC-01B 拍板结果
+
+- 2026-07-16，principal 明示选择 C：分层逻辑 ID + 投影实例 ID。
+- logical asset 以 `kind + namespace + name + optional stable subresource` 标识；projection instance 以 `asset_id + target_id + consumer_slot` 标识，两者使用不同 ID 空间。
+- granularity 以“可独立声明、override、mask/remove 和审计”的最小语义资源为边界；有序项必须有显式稳定 ID，不允许使用数组下标。
+- path/root、host/OS、consumer version、layer、revision/digest 和 secret value 不进入 logical asset ID；观测事实使用独立的 target-scoped observation identity。
+- A 因位置变化造成身份漂移而拒绝；B 因复杂配置与多投影表达不足而拒绝；D 因无法表达同一资产的版本连续性而拒绝作为 logical identity。digest 是否作为 revision/完整性字段由 01C 再拍板。
+
 ## 验证记录
 
 | 检查 | 预期 | 实际结果 |
@@ -72,7 +80,9 @@
 | 01A Git 范围 | 只修改本需求的设计与证据 | 通过：当前 diff 仅 `design.md`、`evidence.md`；无实现或 live 配置 |
 | 后续方向一致性 | DEC-02—DEC-16 均显式服从 B，且不再混淆 v1/Later/Out | 通过：16 个总览项、16 张决策卡、15 条 B 影响约束；旧 runtime/fleet/host 宽口径无残留命中 |
 | 01B 候选完整性 | 候选互斥，涵盖物理、单层逻辑、分层逻辑+投影、内容寻址四种 identity 模型 | 通过：A/B/C/D 均含 canonical fields、收益与主要问题；C 另含 granularity、字段边界、观测 identity 与验收断言 |
-| 本轮仓级回归 | 方向修正与 01B 候选不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
+| 01B 决策记录 | C 的身份空间、边界、理由、拒绝项、Must/Later/Out、后果和验收均可审计 | 通过：01B 标记 `已拍板`；logical/projection/observation identity 分开；digest 明确保留给 01C 决定，不作为 logical ID |
+| 方向审计仓级回归 | 方向修正与 01B 候选不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
+| 01B 拍板仓级回归 | 固化 C 且不把下一轴未决方案写入正式文档后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 
 ## 验证边界
 
@@ -82,6 +92,6 @@
 
 ## 尚未产生的证据
 
-- 01B、01C 与 DEC-02—DEC-16 的拍板结果：后续逐项写入 `design.md`。
+- 01C 与 DEC-02—DEC-16 的拍板结果：后续逐项写入 `design.md`。
 - capability spec / ADR：所有相关决定稳定后再蒸馏。
 - 实现与 runtime 验证：不属于本设计阶段。
