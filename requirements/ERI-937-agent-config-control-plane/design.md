@@ -22,7 +22,15 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 4. 发生漂移时，差异来自 source、resolve、render、projection、live 还是 consumer runtime；
 5. personal/work 或 public/private 边界是否被违反。
 
-当前阶段采用“配置一致优先”：v1 先保证每个 target 的 declared → resolved → rendered → live 配置与其目标状态一致，并能在 apply 前报告差异、apply 后检查漂移。“一致”不是要求 Mac/Windows 或 personal/work 配置字节相同，而是各自 live 状态符合各自 overlay 后的目标。consumer runtime 是否实际加载、hook 是否执行成功、plugin 包是否安装并健康属于后续能力；保留在 16 项能力地图中，不自动进入 v1 `Must`。
+当前阶段采用“配置一致优先”：v1 先保证每个 target 的 declared → resolved → rendered → live 配置与其目标状态一致，并能在 apply 前报告差异、apply 后检查漂移。“一致”不是要求 Mac/Windows 或 personal/work 配置字节相同，而是各自 live 状态符合各自 overlay 后的目标。
+
+这里必须区分三种对象，不能再用“配置/运行时”二分法一刀切：
+
+1. **受管配置**：人有意声明、会改变 Agent 行为或能力面的 desired state；v1 负责解析、渲染、投影和漂移检查。
+2. **绑定与依赖观测**：不由 v1 安装或维护，但会决定哪个配置被消费、或该配置能否成立的事实；v1 必须盘点并参与 plan/verify，不能当成无关主机环境。
+3. **运行态与生成状态**：进程、执行结果、缓存、会话等；不属于 v1 配置一致性承诺，后续另行决定是否治理。
+
+因此，“不负责安装/运行”不等于“不看”。例如 v1 不升级 Codex binary，但必须知道 consumer 产品、版本、路径和配置 schema；不管理整个 shell，但若 wrapper、alias、启动参数或环境变量选择了 `CODEX_HOME`、profile、lane 或 settings source，就必须纳入受管配置或绑定观测。
 
 ## 已知目标拓扑
 
@@ -99,26 +107,82 @@ Agent 配置控制面应能对任意**已声明 target** 回答以下问题；ta
 
 ### DEC-01 资产范围与身份
 
-- 状态：01A 已拍板；01B、01C 待给方案
+- 状态：01A 需重开；01B、01C 待给方案
 - 决策轴：
   - 01A：v1 纳入哪些 asset 类型：skill、MCP、instructions、settings、hooks、plugins 或其它。
   - 01B：每种 asset 的 identity granularity 与 canonical ID 由哪些字段构成。
   - 01C：如何区分同一资产、版本/revision、consumer 派生物、冲突副本和无关同名资产。
-- 01A 决定（v0.2，2026-07-16，approver: principal）：选择 B——v1 纳管完整 Agent **配置面**，先保证配置一致；运行生命周期和行为正确性以后再考虑。
+- 01A 历史决定（v0.2，2026-07-16，approver: principal）：选择 B——v1 纳管完整 Agent **配置面**，先保证配置一致；运行生命周期和行为正确性以后再考虑。这个方向继续有效，但“完整配置面”的枚举不完整，且旧 `Out` 把配置绑定误归为主机环境，所以 v0.2 不能继续视为最终范围拍板。
 
-| 候选 | 配置范围 | 责任边界 | 结果 |
+| v0.2 候选 | 配置范围 | 责任边界 | 结果 |
 |---|---|---|---|
 | A | skills、MCP、instructions、settings、hooks 配置 | 不纳管 plugin 配置 | 拒绝：plugins 也必须进入配置一致性范围 |
 | B | A + plugins 配置 | 保证 declared/resolved/rendered/live 配置一致；不负责 hook 执行、plugin 包安装/升级、依赖解析或运行结果 | **已选择** |
 | C | B + plugin 包、wrapper、alias、Agent binary 和实际运行行为 | 进一步负责安装、版本、进程、执行验证与恢复 | 拒绝作为 v1：超出“先保证配置一致” |
 
-- `Must`：skills、MCP、instructions、settings、hooks 配置、plugins 配置的声明、overlay、consumer 渲染、投影、diff 与漂移检查。
-- `Later`：hook 是否成功执行、plugin 包安装/升级/卸载及依赖、consumer 是否实际调用、运行健康与自动恢复。
-- `Out`（v1）：Agent binary、wrapper、shell alias、进程管理和完整主机环境管理。
-- B 与 C 的边界示例：B 证明“目标配置声明启用 plugin X、注册 hook Y，且目标文件与声明一致”；C 还要证明“plugin X 已正确安装并运行、hook Y 已执行成功、Agent binary 版本正确”。
-- 后果：DEC-11 的 runtime Effective 验证不属于 01A 的 v1 配置一致性承诺；后续单独决定是否列入 Later 或下一阶段，不能反向扩大本项范围。
-- 需要避免：把目录名相同直接当同一资产；一次纳入所有配置导致范围失控。
-- 初步验收：给任意两个候选配置资产，系统能判定关系并解释依据；每个纳入类型都有 identity 与 version 规则；对 hooks/plugins 只验证配置状态，不以实际执行结果作为本项成功条件。
+#### 旧 `Out` 到底指什么，以及边界修正
+
+| 旧名词 | 原意 | v0.3 修正后的归类 |
+|---|---|---|
+| Agent binary | `codex`、`qodercli`、`claude` 可执行文件本身、安装渠道和升级 | 安装/升级 `Out`；产品、版本、路径、支持的 schema/capability 是必须观测的 target 元数据 |
+| wrapper | 在真正 binary 前设置参数、环境变量、profile、代理或工作目录的脚本/启动器 | 若决定配置 root、profile、lane 或 settings source，则 wrapper 声明属于受管配置；其解析结果必须观测。与 Agent 无关的通用 wrapper 才是 `Out` |
+| shell alias/function | 把短命令映射到 binary、参数或环境的 shell 绑定 | 同 wrapper；不能因位于 shell dotfile 就整体排除。v1 不接管整份 shell 配置，只治理/观测与 target 绑定有关的片段 |
+| 进程 | Agent、MCP、daemon、hook 子进程的启动、停止、守护和恢复 | 进程生命周期 `Out`；若进程实际启动参数可安全取得，可作为 Later 的 effective 证据 |
+| 完整主机环境 | OS、包管理器、全部 PATH、shell、系统服务、代理、运行时与其它 dotfiles | 整体 `Out`；但 OS、home/config root、路径、所需 executable 是否存在等配置相关事实属于绑定/依赖观测 |
+
+本机已出现实际反例：`qodercli` 与 `/usr/local/bin/qoder` 指向的不是同一产品入口；Codex 还可能被 `CODEX_HOME`、`--profile`、单次 `-c`、项目 trust 和项目级 `.codex/` 层改变最终配置。如果不记录这些绑定，系统可能在错误 root 上得到“无漂移”的假阳性。
+
+#### v0.3 全量配置候选清单
+
+以下清单按“会不会改变目标 Agent 的声明行为/能力”收口，不按某一家产品当前目录名收口。厂商没有对应能力时标为 unsupported，而不是静默忽略。
+
+| 配置域 | 典型内容 | v1 候选责任 |
+|---|---|---|
+| 指令与持久上下文 | `AGENTS.md`、`CLAUDE.md`、rules、imports、author-written memory/instructions、fallback filenames、大小限制与 precedence | 受管配置；自动生成 memory、会话摘要和历史不在此列 |
+| Skills | skill 本体、scripts/references/assets、启用/禁用、root、scope、frontmatter、override、依赖声明与 lock/source revision | 受管配置；consumer 触发或执行成功属于 Later |
+| MCP、apps 与 connectors | server/app 声明、transport、command/url、tool allow/deny、scope、OAuth/credential reference、启用状态 | 受管配置；secret value 本机化；服务进程、登录会话和连通健康属于 Later |
+| 模型与推理默认值 | model/provider/base URL reference、reasoning、context、输出限制、feature flags、实验能力 | 受管配置；模型缓存与下载状态 `Out` |
+| 权限与安全策略 | approval、sandbox、filesystem/network permission、tool allow/deny、trust、managed policy/requirements | 受管配置；不得被 local overlay 绕过 |
+| Profiles、scope 与层级 | user/project/local/managed scope、profile、lane、workspace/project layer、settings source、precedence、overlay 与 CLI/config override policy | 受管配置；实际启动选择结果必须观测 |
+| Hooks | 事件、matcher、顺序、类型、timeout、command/prompt/agent/http/MCP target，以及受管 hook script 内容 | 受管配置；是否执行、退出码和副作用属于 Later |
+| Plugins、extensions 与 marketplace | manifest、source/ref/version constraint、marketplace/registry、enabled state、override、plugin 所带 skills/agents/hooks/MCP/apps/LSP/bin 声明 | 受管配置；实际安装包、cache、依赖安装和运行健康只观测或 Later |
+| 自定义 agents/subagents | role、description、instructions、model、tools/MCP、skills、permissions、sandbox、并发/深度限制 | 受管配置 |
+| Commands、prompts 与输出交互 | custom commands/prompts、output styles、status line、notification command；已废弃 surface 仍需 inventory/migrate | 是否全部纳入仍需拍板；它们确实会改变 Agent 交互或调用入口，不能漏列 |
+| Agent 客户端偏好 | CLI/TUI/IDE language、theme、layout、更新频道、遥测、索引等 user-authored settings | 是否纳入仍需拍板；需要区分 Agent 行为配置与纯 UI 偏好 |
+| Secret 与本地参数 | token、OAuth 状态、账号、credential store、绝对路径、machine ID、proxy/local endpoint | 只受管 schema、reference、required/optional 和本地绑定；不跨 lane/host 复制 secret value |
+| 控制面元数据 | asset identity、source authority、digest/revision、adapter/schema version、ownership、lock、policy 与 receipt | Almagest 自身必须受管，否则无法解释或重现配置 |
+
+#### 必须观测但不由 v1 安装维护
+
+| 观测对象 | 为什么不能遗漏 |
+|---|---|
+| consumer 产品、版本、binary path、配置 schema/capability | 同一文件在不同产品/版本中可能含义不同，甚至不被识别 |
+| 实际 config root、home、active profile/lane/workspace、project trust | 决定加载哪一层配置 |
+| wrapper/alias/function/启动参数/相关环境变量的解析结果 | 可能把同一命令路由到另一个 binary、root 或 profile |
+| plugin/extension 实际安装版本与 package digest | enabled 配置只有在对应包存在且版本兼容时才有意义；v1 只报告，不负责安装 |
+| hook/MCP/skill script 所需 executable、文件和本地 endpoint 是否存在 | 区分“配置一致”与“依赖缺失”；v1 不自动修复主机依赖 |
+| OS、路径语义、filesystem capability 和 consumer roots | 支撑 Mac/Windows 渲染与 unsupported 判断 |
+
+#### v1 仍然明确不负责
+
+- Agent binary、plugin package、系统依赖和模型的安装、升级、卸载。
+- Agent/MCP/daemon/hook 进程的启动、停止、守护、重试和恢复。
+- hook/MCP/plugin/skill 的业务执行正确性、性能和副作用治理。
+- cache、log、history、transcript、session、telemetry event、代码索引和模型缓存等生成状态的一致化。
+- 整机 dotfiles、包管理器、shell、PATH、代理、系统服务和 OS 策略的通用管理；只有与 Agent target 绑定直接相关的最小片段进入上面的受管/观测范围。
+
+#### 01A v0.3 待拍板候选
+
+| 候选 | 范围 | 主要代价 |
+|---|---|---|
+| A：核心行为配置 | instructions、skills、MCP、模型/权限 settings、hooks、plugins、agents | 仍会漏掉 profile/root/override、启动绑定、commands/UX 等导致的有效配置差异 |
+| B：全部 user-authored Agent 配置 + 绑定观测 | 纳入上面全量候选清单；管理配置声明，观测 binary/安装包/依赖和启动绑定，不管理其生命周期 | adapter 和 inventory 范围更大；必须把“managed / observed / generated”标清 |
+| C：Agent runtime fleet | B + binary/plugin/依赖安装、进程、执行健康、自动恢复 | 重新进入此前否决的运行平台范围，明显超出“先保证配置一致” |
+
+- 当前推荐：**B**。它修复漏项但不扩成 host/runtime manager；核心原则是“所有 user-authored Agent 配置都列入，所有决定配置消费结果的绑定都观测，所有生成状态与生命周期都不接管”。
+- B 的边界示例：系统证明“目标声明启用 plugin X、当前安装版本为 V、注册 hook Y、active profile 为 P，live 配置与声明一致”；它不承诺安装 X、启动相关进程或证明 Y 已成功执行业务逻辑。
+- 重开影响：只有 DEC-01A；DEC-01B/01C 尚未拍板，无需撤销下游决定。DEC-02、DEC-06—DEC-12 的候选生成必须使用修正后的三类对象。
+- 初步验收：系统能枚举每个 target 的 user-authored 配置、绑定输入和生成状态并明确分类；任何 active root/profile/override 未知时不得报告“无漂移”；每个纳入类型都有 identity、version、overlay、render 和 ownership 规则。
 
 ### DEC-02 目标拓扑与隔离能力
 
