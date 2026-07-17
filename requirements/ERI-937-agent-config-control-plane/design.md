@@ -457,11 +457,11 @@ Principal（目标、歧义裁决、逐变更批准）
 
 ### DEC-04 Source 驻留与投影策略
 
-- 状态：04A 已拍板；04B—04D 待给方案
+- 状态：04A、04B 已拍板；04C、04D 待给方案
 - 依赖：DEC-02、DEC-03。
 - 决策轴：
   - 04A：驻留权限是跟随 source，还是允许每项 asset 单独声明 allowed hosts 或例外。
-  - 04B：Mac 的 base + work union、Windows 的 base-only 如何形成确定投影。
+  - 04B：每个已知 target 可以从哪些 source class 取得候选输入，以及 source eligibility 在 overlay/render 前如何固定。
   - 04C：如何在 source/cache/resolved/rendered/plan/receipt/live 全链路执行默认拒绝、零例外的 work 防泄漏，并报告和恢复违规状态。
   - 04D：哪些脱敏元数据允许跨机；无法证明 residency 时的停止条件与迁移要求。
 - 初步验收：work-only payload 进入 Windows 或非授权中间产物必须 `block`；不存在逐 asset 放宽或临时例外；不存在虚构的 Mac personal/work 双 target。
@@ -485,6 +485,28 @@ Principal（目标、歧义裁决、逐变更批准）
 - 接受的代价：即使某个 work asset 后来被判断为可共享，也不能原地加例外；必须经过显式 source 迁移、内容审阅、新 revision 和逐 plan 批准。以此换取规则简单、可静态验证且不会因单项标签遗漏而泄漏。
 - 后果：04B 只需生成 Mac 的 GitHub + work union 与 Windows 的 GitHub-only 投影；04C 不再设计例外授权，只设计全链路阻断、告警与恢复；04D 只能定义不携带或不可还原 work payload 的元数据边界；DEC-07/09/13/16 必须保留 source residency provenance 并解释拒绝原因。
 - 验收断言：任一 GitHub source asset 可进入已授权 Mac/Windows target；任一 work source asset 或含 work contribution 的派生物在 Windows、GitHub 或其它非授权位置出现时必须阻断；不存在能放宽该结论的 asset 字段或 approval；从 work 迁移到 GitHub 必须成为显式 authored change、新 revision 和 DEC-03D 新 plan，而不是更新标签。
+
+#### 04B 已拍板：target 固定 eligible source 集合，Mac 双源、Windows 单源
+
+本轴同样由已知 target 拓扑与 04A 的无例外驻留约束收敛为约束确认，不再制造 A/B/C/D 伪选项。它只回答“这个 target 最多能从哪些 source 取得候选输入”，不回答同名资产如何覆盖、字段如何合并或 consumer 格式如何渲染。
+
+| Target | Eligible source 集合 |
+|---|---|
+| Mac 工作机 / Codex | GitHub personal/shared base + Mac-local work |
+| Mac 工作机 / QoderCLI | GitHub personal/shared base + Mac-local work |
+| Windows / Codex | GitHub personal/shared base |
+| Windows / Claude | GitHub personal/shared base |
+
+- 决定（v0.1，2026-07-17，approver: principal）：Almagest 先根据稳定 `target_id` 和受管 `source_class` 得到固定 source eligibility，再把符合条件的候选交给 DEC-05 做 overlay/resolve，最后由 DEC-08 做 per-consumer render。相同 target 与 source inventory 必须得到相同 eligible source 集合。
+- eligibility 语义：上表是候选输入的上界，不代表 source 中每个 asset 都适用于每个 consumer。asset 的 consumer/target selector 可以进一步缩小候选集，但不能把 Mac-local work 扩给 Windows，也不能创建表外 source 组合。
+- 静态拓扑：source eligibility 不因当前工作目录、启动 profile、某个 root 恰好存在、operator Agent 身份或一次运行中的可用性而变化。OS、consumer 版本、root 和 profile 可以参与后续 selector、兼容性与绑定验证，但不能动态改写这张 target→source 映射。
+- fail-closed 边界：已登记给 Mac target 的 work source 不可访问、身份不明或无法证明来源时，结果必须是 `unknown/block`；不得静默退化为 GitHub-only 并宣称 Mac 配置合规。具体 inventory 证据、诊断码与 plan 表达由 DEC-07/09 定义。
+- `Must`：四个已知 target 的显式 source eligibility；Mac Codex/Qoder 双源；Windows Codex/Claude 单源；resolve 前完成 eligibility filter；结果确定且可解释；work source 对 Windows 永不成为候选。
+- `Later`：新增 host、consumer 或独立 source class 时，显式登记新的 target→source 映射并重做驻留审阅；当前不建设自动推断拓扑的规则引擎。
+- `Out`：按 cwd/profile/operator/临时可用性动态选 source、Windows 发现或读取 work source、Mac 在 work source 故障时静默降级为合规、在本轴决定 merge precedence，以及在本轴决定 consumer 的目录与 frontmatter 转换。
+- 接受的代价：每增加一个 target 或 source class 都必须显式维护映射；Mac-local work 暂时不可访问时，即使 GitHub base 完整也不能得到“配置合规”的成功结果。以此换取跨机投影不会依赖环境猜测或 fallback。
+- 后果：DEC-05 只能在本轴给出的 eligible source 内定义 overlay、merge、remove 与 conflict；DEC-07 必须盘点 target/source 身份及可访问性；DEC-08 只能把已 resolve 的目标状态适配给对应 consumer；DEC-09 必须把 eligibility filter、缺失输入和拒绝原因纳入 plan 证据。若 work 内容要改为跨机共享，仍走 04A 的 GitHub authored migration 与新 plan，不修改映射来绕过驻留。
+- 验收断言：Mac Codex/Qoder 的候选 source 集合恰为 GitHub + work，Windows Codex/Claude 恰为 GitHub-only；selector 只能缩小集合，不能扩大；任何运行态条件都不能静默改写映射；已登记的 Mac work source 缺失或不可证明时停止 resolve/apply，而不是以 GitHub-only 冒充成功；本轴不规定 asset merge winner 或 rendered 格式。
 
 ### DEC-05 Overlay 与解析
 

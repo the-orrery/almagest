@@ -82,6 +82,21 @@ Scenario: 驻留权限跟随 source 且 work source 无单项例外
 ```
 
 ```gherkin
+Scenario: target 固定 source eligibility 且不做运行时 fallback
+  Given Mac Codex、Mac QoderCLI、Windows Codex、Windows Claude 四个已声明 target
+  And GitHub personal/shared base 与 Mac-local work 两类受管 source
+  When Almagest 在 overlay 和 render 前计算 source eligibility
+  Then Mac Codex 与 Mac QoderCLI 的 eligible source 集合恰为 GitHub base 加 Mac-local work
+  And Windows Codex 与 Windows Claude 的 eligible source 集合恰为 GitHub base
+  And asset selector 可以缩小候选集，但不能让 Windows 取得 work source
+  And cwd、profile、operator Agent、root 是否碰巧存在或 source 临时不可用均不能改写映射
+  When 已登记给 Mac target 的 work source 缺失、身份不明或不可证明
+  Then resolve 与 apply 必须停止并返回 unknown 或 block
+  And 不得以 GitHub-only 结果宣称 Mac 配置合规
+  And 同名 asset 的 winner、字段 merge 与 consumer render 仍分别由 DEC-05 和 DEC-08 决定
+```
+
+```gherkin
 Scenario: 顺序化完成一个决策轴拍板
   Given 当前决策卡的上游依赖均已拍板
   And Codex 已说明问题、事实边界与需要澄清的信息
@@ -139,6 +154,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 外部候选、周期检查与吸收完全位于 Almagest 之外；只有吸收后的 owned revision 能改变配置计划。
 - [ ] 所有非 `no-op` 配置写计划均先报警并逐 plan 取得 principal 批准；不按风险或资产类型静默放行。
 - [ ] 驻留权限只跟 source；Mac-local work 全量 Mac-only，任何 asset、标签或临时批准都不能单独放宽。
+- [ ] 四个 target 的 eligible source 映射固定；Mac Codex/Qoder 为 GitHub + work，Windows Codex/Claude 为 GitHub-only，运行时条件不得静默改写或 fallback。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收
