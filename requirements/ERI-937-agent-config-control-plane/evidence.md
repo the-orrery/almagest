@@ -88,6 +88,13 @@
 - override 不修改 source desired state，不可永久复用；receipt 记录 capability evidence、被省略项、损失、确认人、理由和结果，并将 target 标为 `applied_with_exception`，不冒充普通成功或合规。
 - B2 只处理 consumer capability gap；source trust、secret 泄漏、work residency/egress deny 等硬策略拒绝不可通过二次确认越过。A、B1、C、D 分别因伪成功、缺人工出口、隐式分类放行和语义自动改写而拒绝。
 
+## DEC-03A 拍板结果
+
+- 2026-07-16，principal 选择 B：按 source 类型固定 ownership；authority 表示 source 有权声明什么，不等同于 overlay precedence。
+- GitHub personal/shared base 拥有共享可移植 declaration 与外部 package 的本地采用意图；Mac-local work 拥有 work-only asset/delta；host-local 只拥有受 schema 约束的本机 binding；registry/upstream 只拥有被选 revision 的内容和发布元数据；resolved/rendered/cache/live 无 authored authority。
+- 外部 package 的“本地是否采用、启用和投影”与“上游 revision 内容”分属本地 source 和 registry；签名、digest、浮动 ref 与更新策略留给 03C，合法 overlay/override 留给 03B/05。
+- scope 外声明直接作为 authority violation 阻断，不按低优先级候选处理，也不可通过 DEC-02C break-glass 放行。A、C、D 分别因无法承载 work-local、per-asset 治理过重和多主不可复现而拒绝。
+
 ## 验证记录
 
 | 检查 | 预期 | 实际结果 |
@@ -112,6 +119,8 @@
 | 02A/02B 拍板仓级回归 | 固化 target 与 source residency 模型后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 02C 决策记录 | 默认阻断、二次确认、降级计划、审计、失效与不可越过边界均可审计 | 通过：B2 标记 `已选择`；无确认零写入、逐 plan override、exception receipt 和硬策略拒绝均已明确 |
 | 02C 拍板仓级回归 | 固化 B2 break-glass 合同后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
+| 03A 决策记录 | 五类 source 的 ownership、采用权/内容权、越权处理与未决边界均可审计 | 通过：B 标记 `已选择`；source-class matrix、派生目录无 authority、scope violation block 以及 03B/03C/05/06 边界均已明确 |
+| 03A 拍板仓级回归 | 固化 source-class ownership 后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 
 ## 验证边界
 
@@ -121,6 +130,6 @@
 
 ## 尚未产生的证据
 
-- DEC-03—DEC-16 的拍板结果：后续逐项写入 `design.md`。
+- DEC-03B—03D 与 DEC-04—DEC-16 的拍板结果：后续逐项写入 `design.md`。
 - capability spec / ADR：所有相关决定稳定后再蒸馏。
 - 实现与 runtime 验证：不属于本设计阶段。

@@ -308,14 +308,42 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 
 ### DEC-03 权威来源与信任
 
-- 状态：待给方案
+- 状态：03A 已拍板；03B—03D 待给方案
 - 依赖：DEC-01、DEC-02。
 - 决策轴：
-  - 03A：public、private、work-only、本机声明和外部 registry 各自能声明什么，ownership 如何分配。
-  - 03B：冲突时按字段/资产由谁裁决；cache、rendered 和 live 如何禁止反客为主。
+  - 03A：GitHub personal/shared、Mac-local work、host-local binding、外部 registry 与派生目录各自能声明什么，ownership 如何分配。
+  - 03B：多个已获 authority 的候选重叠时如何按字段/资产裁决；如何检测 cache、rendered 和 live 反向污染 source。
   - 03C：外部 source、浮动 revision、签名/digest、allowlist 和更新策略如何受信。
   - 03D：skill、hook、MCP 等可执行或可调用内容如何分级风险并获批。
-- 初步验收：每个 resolved asset 能追溯到唯一 authority 和不可歧义的输入 revision/digest；不可信输入 fail closed。
+- 初步验收：每个 resolved field/contribution 能追溯到允许的 authority；最终裁决与输入 revision/digest 不可歧义；不可信输入 fail closed。
+
+#### 03A 已拍板：按 source 类型固定 ownership
+
+| 候选 | Authority 模型 | 结果 |
+|---|---|---|
+| A：GitHub 单一 authority | 所有 desired declaration 最终都进入 GitHub，其它位置仅保存派生物或参数 | 拒绝：无法容纳禁止进入 GitHub 的 work-local 内容 |
+| B：按 source 类型固定 ownership | 每类 source 只在固定 authority scope 内声明内容 | **已选择** |
+| C：逐 asset 自由指定 authority | 每个 asset 可指向任意 Git、本地或 registry source | 拒绝：当前规模不需要 per-asset authority registry，迁移和冲突成本过高 |
+| D：多 authority / last writer wins | GitHub、work、registry 与 live 均可改 desired state，以最后写入或最高版本为准 | 拒绝：无法区分有意修改与漂移，也无法稳定复现 |
+
+- 决定（v0.1，2026-07-16，approver: principal）：03A 选择 **B——按 source 类型固定 ownership**。authority 表示某个 source class 有权声明哪类 authored intent 或内容；它不等于 overlay precedence。多个合法声明如何组合、override 或 mask 仍由 DEC-03B/05 决定。
+
+| Source class | 拥有的 authority | 明确不拥有 |
+|---|---|---|
+| GitHub personal/shared base | 两机共享的可移植 desired declaration；外部 package 的采用、目标选择、启用状态与版本/ref 声明 | work-only payload、host secret value、本机路径值 |
+| Mac-local work | work-only authored asset 与 work-specific delta 的声明 | 向 Windows 投影的资格、GitHub base 的所有权、host secret value |
+| Host-local binding | 受 schema 允许的机器路径、账号/credential reference、本地 endpoint 与其它本机绑定值 | skill/instruction/hook/plugin 等可移植逻辑正文；任意绕过 portable/work source 的配置重定义 |
+| External registry/upstream | 被选择 revision 对应的上游 package 内容与发布元数据 | 本地是否采用、启用、升级或投影到哪个 target；本地 policy |
+| Resolved/rendered/cache/live | 无 authored authority；只保存派生结果、观测或 evidence | 反向成为 desired state，或以 live 修改自动覆盖 source |
+
+- 采用权与内容权分离：GitHub base 或 Mac-local work 声明“采用哪个外部内容、给哪些 target 使用”；registry/upstream 只提供该 revision 的内容。外部 source 的锁定、签名、digest、allowlist 与更新方式仍由 03C 决定，本项不预判信任机制。
+- scope enforcement：每个 source 必须声明稳定 `source_id`、`source_class` 与 `authority_scope`。source 在 scope 外声明内容属于 authority violation，进入 plan 时直接阻断；不得把它降格成普通低优先级候选，也不得通过 DEC-02C break-glass 放行。
+- overlap 边界：work source 可以声明 work-only asset 和允许的 work delta，但本项不决定它能否覆盖、删除或拼接 GitHub base 的具体字段；host-local 只能填入已授权的本机 binding slot。字段级 ownership、冲突裁决和 merge algebra 分别留给 03B、05、06。
+- `Must`：固定 source-class ownership matrix；所有 source 与声明可审计归类；外部 package 的本地采用权与上游内容权分离；派生/live 状态无 authority；越权声明 fail closed。
+- `Later`：若未来出现多个团队独立维护同一 source class，再评估 namespace/team delegation；当前不预建通用组织级 authority service。
+- `Out`：GitHub-only 伪单一真相、逐 asset 任意 authority、多主/last-writer-wins、自动 adopt live drift、让 registry 更新直接改变本地 desired state。
+- 后果：03B 只在已获 authority 的候选之间定义裁决；03C 定义 external source/revision 的信任与更新；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
+- 验收断言：每个 resolved asset/field 都能追溯到允许其声明的 source class；registry 发布新版本不会自动改变本地采用或启用状态；手改 live target 被报告为 drift 而不是新 source；GitHub base 出现 work-only payload、host-local 重写可移植逻辑或任意派生目录反向声明 desired state 时均阻断。
 
 ### DEC-04 Source 驻留与投影策略
 
