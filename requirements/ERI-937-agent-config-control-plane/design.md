@@ -725,14 +725,52 @@ target ref = stable asset/subresource/item locator + expected target semantic di
 
 ### DEC-06 Secret 与本地参数
 
-- 状态：待给方案
+- 状态：06A 已拍板；06B—06D 待给方案
 - 依赖：DEC-03—DEC-05。
 - 决策轴：
   - 06A：secret value/reference、本机绝对路径、账号、OS/host 参数如何分类。
   - 06B：各类 reference/local binding 存在哪里、由谁提供、哪些 binding scope 可以补值或替换引用；外部 credential provider 仍拥有 secret value 生命周期。
   - 06C：plan、diff、receipt、日志和错误信息如何脱敏。
   - 06D：缺值、引用失效或权限不足时如何 fail closed 并诊断。
-- 初步验收：portable source、rendered artifact 和 receipt 不泄漏 secret；本机路径不会误投影到其它 host。
+
+#### 06A 已拍板：Portable declaration、host-local binding、observed host fact 三分类
+
+本轴只决定 secret、路径、账号与 host 差异在配置模型中属于哪类事实。它不决定 binding 的物理存储、provider、scope 与补值顺序，不预设脱敏格式，也不决定缺值后的诊断流程；这些分别留给 06B—06D。
+
+| 选项 | 分类模型 | 结论 |
+|---|---|---|
+| A：Authored / local 两类 | 所有 portable 声明归 authored，其余本机信息统一归 local | 拒绝：可补值的 binding 与只读 observation 混在一起，容易把当前环境误当 desired state |
+| B：Declaration / binding / observation 三类 | 分开表达可移植需求、本机补值与当前主机事实 | **已选择** |
+| C：Secret / non-secret 两类 | secret 本机化，其余内容均可进入 source | 拒绝：绝对路径、账号、machine ID 与 local endpoint 即使不是 secret，也不可移植且可能泄漏 |
+| D：各 adapter 自由分类 | 每类 asset 自行决定 local-sensitive 字段语义 | 拒绝：同一账号、路径或 host 参数会跨 asset 得到不同 authority 与漂移结论 |
+
+```text
+portable declaration/reference
+        │ declares typed slot / requirement / constraints
+        ▼
+host-local binding value or provider locator
+        │ satisfies an existing slot for one target
+        ▼
+per-target render input
+
+observed host fact ──> selector / capability / validation evidence
+                     （只读输入，不是 desired contribution）
+```
+
+- 决定（v0.1，2026-07-17，approver: principal）：06A 选择 **B——portable declaration/reference、host-local binding value、observed host fact 三分类**。分类依据是某个表示在配置链路中的职责，不是“账号”“路径”“host 参数”等名词本身。
+- Portable declaration/reference：由 GitHub personal/shared 或 Mac-local work 按既有 authority 声明“需要什么”，包括 stable binding slot/ref、value type、required/optional、sensitivity、约束与可移植 selector。它可以表达 provider-neutral 的逻辑引用，但不得内联某台机器的实际 secret、绝对路径、账号选择、machine ID 或 local endpoint。
+- Host-local binding：为一个已声明 typed slot 在当前 target 上提供机器相关值或 provider locator，包括实际绝对路径、当前选定账号/profile、本机 endpoint/proxy、machine ID，以及指向本机 credential provider 中 secret material 的定位信息。secret value 的生命周期仍由外部 credential provider 拥有；06A 不决定 Almagest 如何取得或暂存它。
+- Observed host fact：Almagest 在当前 host 读取但不拥有的事实，包括 OS/architecture/hostname、consumer/version、路径存在性与权限、credential/login 可用性及其它 capability 状态。它们只能作为 selector、capability、plan/verify 证据或诊断输入，不是 authored desired state，也不是 binding override。
+- 同名不同阶段：同一概念必须按表示逐项分类。例如“所需账号角色/逻辑引用”是 portable declaration，“本机选中的账号/profile”是 host-local binding，“当前是否登录及权限是否有效”是 observed fact；“路径 slot”是 declaration，“解析后的绝对路径”是 binding，“路径是否存在/可访问”是 observation。
+- Authority 边界：只有 portable declaration/reference 可以形成 authored contribution；host-local binding 只能满足 schema 已声明且允许本机补值的 slot，不能新增 asset、改变逻辑引用语义、覆盖普通 authored 字段或绕过 source trust/work residency。observed fact 更不能反向写成 source 或 binding。
+- Layer 边界：三分类是 data-role model，不是三层 overlay。authored layer 仍只有 DEC-05A 的 GitHub base 与 Mac-local work；binding 和 observation 都不取得 precedence、override、mask、remove 或 conflict winner 权力。
+- 未知分类：schema/adapter 无法证明某个 local-sensitive 字段属于哪一类时，不得按 non-secret、local default 或 adapter 惯例猜测；该字段标记 `unknown_local_role/block`。具体诊断内容与恢复出口留给 06D。
+- `Must`：所有 local-sensitive schema 字段可被确定地归入三类之一；reference 与 value 分离；binding 只能填充现有 typed slot；observation 保持只读；secret value 不进入 authored source；binding/observation 不形成第三 authored layer。
+- `Later`：Agent authoring hint、从既有 consumer 配置推断候选分类、交互式 binding bootstrap；所有推断在明确采纳前都不取得 authority。
+- `Out`：secret/non-secret 二分替代 data-role 分类、任意 local overlay、按环境变量或 adapter 惯例隐式取得 authority、把当前 host observation 写回 desired source、把 secret value/绝对路径/machine ID 作为 logical asset ID，以及在 06A 预设 credential store 或 binding 文件格式。
+- 接受的代价：每个 adapter/schema 必须显式标出 local-sensitive 字段的 role，Agent 遇到旧配置或含混字段时需要先补分类而不能直接投影。以此换取“需要什么”“本机填什么”“当前观察到什么”三种事实不会互相冒充。
+- 后果：06B 必须为 declaration→binding 定义 provider、存放与合法 scope，但不能让 binding 获得 authored authority；06C 必须按三类决定 value、reference 与 observation 的披露边界；06D 必须区分 slot 缺值、provider/ref 失效与 observation 不满足。DEC-07 分栏盘点 authored/binding/observed，DEC-08 只在 target render 时消费合法 binding，DEC-09/12 区分 source drift、binding drift 与 observation/capability 变化，DEC-16 保留分类与 provenance 而不泄漏值。
+- 验收断言：相同 source declaration 在不同 host 可绑定不同本机值而不改变 authored revision；secret value、绝对路径、实际账号和 machine ID 不进入 portable source；OS/权限/登录状态等 observation 不取得配置 authority；binding 不能新增或覆盖未声明字段；任何本机信息都不能因被命名为“参数”而成为第三 overlay layer；分类未知时 fail closed。
 
 ### DEC-07 Inventory
 

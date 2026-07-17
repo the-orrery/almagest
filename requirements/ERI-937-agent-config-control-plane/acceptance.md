@@ -206,6 +206,32 @@ Scenario: 两个 authority source 使用 inventory 引用原生 payload
 ```
 
 ```gherkin
+Scenario: 本机敏感输入按 declaration、binding、observation 三类分离
+  Given GitHub personal/shared 与 Mac-local work 是仅有的两个 authored layer
+  When source 需要 secret、账号、本机路径或 host-dependent 参数
+  Then source 只能声明 portable typed slot/reference、value type、required/optional、sensitivity 与约束
+  And provider-neutral logical reference 可以随 source 版本化
+  And 实际 secret、绝对路径、账号/profile 选择、machine ID 或 local endpoint 不得内联进 portable declaration
+  When 当前 target 为已声明且允许本机补值的 typed slot 提供实际路径、账号/profile、local endpoint、machine ID 或 credential provider locator
+  Then 该表示分类为 host-local binding
+  And binding 只能满足该 slot，不得新增 asset、改变引用语义、覆盖普通 authored 字段或绕过 authority/residency policy
+  And secret value 的生命周期仍由外部 credential provider 拥有
+  When Almagest 读取 OS、architecture、hostname、consumer/version、路径存在性/权限或 credential/login 可用性
+  Then 该表示分类为 observed host fact
+  And 它只能用于 selector、capability、plan/verify evidence 或诊断
+  And 不得作为 authored contribution、binding override 或 desired-state winner
+  When 同一账号概念分别表示所需账号角色、本机选中账号和当前登录状态
+  Then 三个表示必须分别分类为 portable declaration、host-local binding 与 observed host fact
+  When binding 或 observation 在 Mac 与 Windows 间不同
+  Then 两台 host 的 authored base revision 可以保持相同
+  And 不得为该差异创建第三 authored layer
+  When schema/adapter 无法证明 local-sensitive 字段的分类
+  Then 返回 unknown_local_role 并阻断依赖该字段的普通 resolve/plan/apply
+  And 不得按 non-secret、环境变量存在或 adapter 惯例猜测分类
+  And binding 的存放/provider/scope、脱敏与缺值恢复仍分别由 DEC-06B—06D 决定
+```
+
+```gherkin
 Scenario: work 越界全链路阻断且只由 principal 决定恢复
   Given 某个 work asset、field contribution 或含 work contribution 的派生 payload
   When Almagest 即将把它写入 GitHub、Windows 或其它非授权 source、cache、resolved、rendered、plan、receipt 或 live 位置
