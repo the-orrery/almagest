@@ -97,6 +97,24 @@ Scenario: target 固定 source eligibility 且不做运行时 fallback
 ```
 
 ```gherkin
+Scenario: work 越界全链路阻断且只由 principal 决定恢复
+  Given 某个 work asset、field contribution 或含 work contribution 的派生 payload
+  When Almagest 即将把它写入 GitHub、Windows 或其它非授权 source、cache、resolved、rendered、plan、receipt 或 live 位置
+  Then 写入必须在物化前被拒绝
+  And 非授权目标保持零变化
+  And Almagest 返回可引用 detection、违规位置、provenance、影响范围和阻断状态的结构化诊断
+  When Almagest 只读发现某个非授权位置已经存在 work payload
+  Then 依赖该状态的 resolve、普通 plan 与 apply 必须阻断
+  And inventory、diff、explain 与取证仍可继续
+  And 不得自动删除、隔离、迁移、修复或接纳 source、cache、live 及其它副本
+  And 普通变更 approval、break-glass、单次冲突裁决或 acknowledgment 均不能解除阻断
+  When principal 明确指定恢复动作且批准绑定 detection、固定输入、完整 action set 和 plan hash 的 recovery plan
+  Then operator Agent 只能执行该精确恢复动作
+  And 执行后必须重新 inventory 与 verify
+  And 只有证据证明越界 payload 已消失且输入重新固定，才能解除阻断并重新生成普通 plan
+```
+
+```gherkin
 Scenario: 顺序化完成一个决策轴拍板
   Given 当前决策卡的上游依赖均已拍板
   And Codex 已说明问题、事实边界与需要澄清的信息
@@ -155,6 +173,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 所有非 `no-op` 配置写计划均先报警并逐 plan 取得 principal 批准；不按风险或资产类型静默放行。
 - [ ] 驻留权限只跟 source；Mac-local work 全量 Mac-only，任何 asset、标签或临时批准都不能单独放宽。
 - [ ] 四个 target 的 eligible source 映射固定；Mac Codex/Qoder 为 GitHub + work，Windows Codex/Claude 为 GitHub-only，运行时条件不得静默改写或 fallback。
+- [ ] work 越界写入在物化前拒绝；既有越界阻断受影响链路并告警；Almagest 不自动恢复，只有 principal 批准的精确 recovery plan 经重新验证后才能解除。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收

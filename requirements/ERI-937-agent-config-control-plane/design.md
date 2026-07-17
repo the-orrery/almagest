@@ -457,7 +457,7 @@ Principal（目标、歧义裁决、逐变更批准）
 
 ### DEC-04 Source 驻留与投影策略
 
-- 状态：04A、04B 已拍板；04C、04D 待给方案
+- 状态：04A、04B、04C 已拍板；04D 待给方案
 - 依赖：DEC-02、DEC-03。
 - 决策轴：
   - 04A：驻留权限是跟随 source，还是允许每项 asset 单独声明 allowed hosts 或例外。
@@ -507,6 +507,30 @@ Principal（目标、歧义裁决、逐变更批准）
 - 接受的代价：每增加一个 target 或 source class 都必须显式维护映射；Mac-local work 暂时不可访问时，即使 GitHub base 完整也不能得到“配置合规”的成功结果。以此换取跨机投影不会依赖环境猜测或 fallback。
 - 后果：DEC-05 只能在本轴给出的 eligible source 内定义 overlay、merge、remove 与 conflict；DEC-07 必须盘点 target/source 身份及可访问性；DEC-08 只能把已 resolve 的目标状态适配给对应 consumer；DEC-09 必须把 eligibility filter、缺失输入和拒绝原因纳入 plan 证据。若 work 内容要改为跨机共享，仍走 04A 的 GitHub authored migration 与新 plan，不修改映射来绕过驻留。
 - 验收断言：Mac Codex/Qoder 的候选 source 集合恰为 GitHub + work，Windows Codex/Claude 恰为 GitHub-only；selector 只能缩小集合，不能扩大；任何运行态条件都不能静默改写映射；已登记的 Mac work source 缺失或不可证明时停止 resolve/apply，而不是以 GitHub-only 冒充成功；本轴不规定 asset merge winner 或 rendered 格式。
+
+#### 04C 已拍板：全链路阻断并告警，principal 决定恢复
+
+本轴已经由 04A 的无例外驻留和 principal 的处置要求收敛为约束确认：Almagest 必须在自己控制的物化边界阻止 work payload 越界，并在发现既有越界时阻断受影响的变更链；但它不因发现问题而自动取得删除、迁移、修复或接纳任何内容的权限。
+
+```text
+预防：work-derived payload ──写入前 residency check──X──> GitHub / Windows / 非授权位置
+发现：既有越界 ──> block 受影响链路 + 结构化诊断 ──> principal 决策
+恢复：principal 明示动作 ──> Agent 执行精确 recovery plan ──> 重新 inventory/verify ──> 证据通过后解除
+```
+
+- 决定（v0.1，2026-07-17，approver: principal）：任何 work asset、field contribution 或含 work contribution 的 content-bearing 派生物，在进入 `source/cache/resolved/rendered/plan/receipt/live` 任一非授权位置前都必须被拒绝，产生零越界写入；若越界状态已经存在，则立即阻断依赖该状态的 resolve、普通 plan 与 apply，并通过 operator Agent 告警 principal。
+- 两类 enforcement：Almagest 控制的写入采用 pre-write deny，不允许“先复制、后扫描”；consumer 或其它组件已经生成、且 Almagest 没有写权限的 cache/live 等位置采用只读 detection。被发现不等于 Almagest 取得管理权，不能据此自动修改该位置。
+- 与 03B2 的边界：03B2 按数据流方向识别“downstream 内容反向进入 authority source”，无论内容属于 personal 还是 work；04C 按驻留策略识别“work 内容进入非授权位置”，无论由哪条数据流造成。同一事实同时命中时可以共享 evidence，但必须同时满足两项恢复条件，不能用修复其中一项来解除另一项阻断。
+- 告警合同：Almagest 返回机器可消费的结构化诊断，至少能引用 detection、违规 stage/location、work provenance 证据、受影响 target/action 和当前阻断状态；operator Agent 将其翻译成人话交给 principal。稳定 schema、诊断码和不携带 work payload 的跨机摘要边界分别由 DEC-07/09/16 与 04D 细化，本轴不建设独立通知平台。
+- 阻断范围：只读 inventory、diff、explain 和取证可以继续；依赖该违规状态的 resolve、普通 plan 与 apply 保持阻断。普通变更 approval、DEC-02C break-glass、DEC-03B1 单次冲突裁决以及“已知悉/忽略”均不能绕过 work residency block。
+- 恢复 authority：Almagest 可以给出可引用的恢复候选，但不能自动选择或执行。principal 必须现场明确修复目标与动作，operator Agent 才能形成绑定 detection、固定输入、精确 action set 和 plan hash 的 recovery plan；任何写动作仍须满足 DEC-03D 的逐 plan 批准。
+- 解除条件：执行获批 recovery plan 后必须重新 inventory/verify；只有新证据证明违规 payload 已从非授权位置消失、且受影响输入已重新固定，才解除阻断并重新生成普通 plan。仅关闭告警、记录 acknowledgment、等待一段时间或修复部分副本都不算恢复完成。
+- `Must`：所有 content-bearing stage 的 residency 继承；受控物化点 pre-write deny；既有越界 read-only detection；受影响链路硬阻断；结构化告警；principal 现场决策；独立 recovery plan；修复后重新取证再解除。
+- `Later`：检测调度、跨机汇总频率、通知渠道和大规模历史扫描由 DEC-12/13 或外部 operator automation 决定；本轴只规定一旦检测到违规时必须怎样处置。
+- `Out`：先写后扫、自动删除/隔离/迁移/修复/adopt、静默清理 consumer cache/live、永久忽略、acknowledgment 解锁、用普通 approval 或 break-glass 放行，以及让 Almagest 承担通用 data loss prevention（DLP，数据防泄漏）或内容分类平台。
+- 接受的代价：已知越界会让受影响配置链持续不可变更，直到 principal 作出决定、Agent 完成修复并重新验证；即使恢复动作明显，也不能由 Almagest 自动代办。以此换取发现问题不会扩大权限或造成二次破坏。
+- 后果：04D 必须定义告警、plan、receipt 与跨机汇总可携带的最小脱敏元数据；DEC-07 必须提供逐 stage 的 provenance evidence；DEC-09 必须表达 block-only 与 recovery plan；DEC-10 必须保证 deny 发生在写入前且 apply 与获批 recovery plan 等价；DEC-12/13 决定何时检测和如何跨机汇总；DEC-16 记录 detection→principal decision→recovery apply→verify 的完整链。
+- 验收断言：Almagest 控制的任一 work 越界写入在落盘前被拒绝且目标零变化；任一既有越界都会阻断受影响的 resolve、普通 plan 与 apply，同时允许只读取证；没有 principal 明示决定与精确批准时零修复写入；普通 approval、exception 或 acknowledgment 不能解锁；只有获批恢复完成且重新验证通过后才能解除阻断。
 
 ### DEC-05 Overlay 与解析
 
