@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "layer": {
+    "residency": "shared"
+  },
+  "sources": {
+    "personal-source": {
+      "repository": "personal/skill-vault",
+      "revision": {
+        "kind": "git-commit",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "residency": "shared",
+      "authority": "authored-owned"
+    }
+  },
+  "hosts": {
+    "mac": {
+      "platform": "macos"
+    },
+    "win": {
+      "platform": "windows"
+    }
+  },
+  "targets": {
+    "mac.codex": {
+      "host": "mac",
+      "consumer": "codex",
+      "bindings": ["mac.codex.skills-root"]
+    },
+    "mac.qoder": {
+      "host": "mac",
+      "consumer": "qodercli",
+      "bindings": ["mac.qoder.skills-root"]
+    },
+    "win.codex": {
+      "host": "win",
+      "consumer": "codex",
+      "bindings": ["win.codex.skills-root"]
+    },
+    "win.claude": {
+      "host": "win",
+      "consumer": "claude",
+      "bindings": ["win.claude.skills-root"]
+    }
+  },
+  "bindings": {
+    "mac.codex.skills-root": {
+      "host": "mac",
+      "kind": "path"
+    },
+    "mac.qoder.skills-root": {
+      "host": "mac",
+      "kind": "path"
+    },
+    "win.codex.skills-root": {
+      "host": "win",
+      "kind": "path"
+    },
+    "win.claude.skills-root": {
+      "host": "win",
+      "kind": "path"
+    }
+  },
+  "assets": {
+    "skill.demo": {
+      "kind": "skill",
+      "source": {
+        "source": "personal-source",
+        "path": "skills/demo"
+      },
+      "mutation_authority": "almagest-managed"
+    }
+  },
+  "assignments": {
+    "skill.demo@mac.codex": {
+      "asset": "skill.demo",
+      "target": "mac.codex"
+    },
+    "skill.demo@mac.qoder": {
+      "asset": "skill.demo",
+      "target": "mac.qoder"
+    },
+    "skill.demo@win.codex": {
+      "asset": "skill.demo",
+      "target": "win.codex"
+    },
+    "skill.demo@win.claude": {
+      "asset": "skill.demo",
+      "target": "win.claude"
+    }
+  }
+}

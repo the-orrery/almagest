@@ -2,17 +2,24 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 
 import typer
 
-from almagest import skills, telemetry
+from almagest import registry, skills, telemetry
 from almagest.logging_setup import setup_logging
 
 app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
-    help="almagest — agent skill 索引+安装器",
+    help="almagest — 本机 Agent 配置控制面",
 )
+registry_app = typer.Typer(
+    no_args_is_help=True,
+    add_completion=False,
+    help="严格加载并校验 authored Agent 配置 registry",
+)
+app.add_typer(registry_app, name="registry")
 
 
 def _doctor_report(
@@ -87,6 +94,55 @@ def _filter_manifest_lane(m: skills.Manifest, lane: str) -> skills.Manifest:
             s.model_copy(update={"lanes": [lane]}) for s in m.skills if lane in s.lanes
         ],
     )
+
+
+@registry_app.command(name="validate")
+def validate_registry(
+    shared: list[Path] = typer.Option(
+        ..., "--shared", help="shared registry JSON；可重复"
+    ),
+    host_bindings: Path = typer.Option(
+        ..., "--host-bindings", help="当前 host-local bindings JSON"
+    ),
+    local: list[Path] = typer.Option(
+        [], "--local", help="Mac-local registry JSON；可重复，Windows 禁止"
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="输出稳定、脱敏的机器可读 JSON"
+    ),
+) -> None:
+    """校验 authored registry、物理驻留边界和当前 host bindings。"""
+    setup_logging()
+    try:
+        result = registry.check_registry(
+            shared,
+            local_paths=local,
+            host_bindings_path=host_bindings,
+        )
+    except RuntimeError:
+        result = registry.RegistryCheck(
+            catalog=None,
+            diagnostics=(
+                registry.RegistryDiagnostic(
+                    code="unsupported-host-platform",
+                    scope="host",
+                ),
+            ),
+        )
+    report = result.report()
+    if json_output:
+        typer.echo(json.dumps(report, ensure_ascii=False, sort_keys=True))
+    elif result.ok:
+        summary = report["summary"]
+        typer.echo(
+            f"ok · registry {report['registry_revision']} · "
+            f"{summary['assets']} assets · {summary['targets']} targets"
+        )
+    else:
+        for diagnostic in result.normalized_diagnostics:
+            typer.echo(f"BLOCK  {diagnostic.code} [{diagnostic.scope}]")
+    if not result.ok:
+        raise typer.Exit(1)
 
 
 @app.command()

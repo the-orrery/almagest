@@ -98,6 +98,7 @@ def test_identity_source_missing_root_is_actionable_json(
 ) -> None:
     _make_identity_manifest(tmp_path, monkeypatch)
     monkeypatch.delenv("ALMAGEST_SOURCE_ROOTS")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty-xdg"))
 
     result = runner.invoke(app, ["doctor", "--json"])
 

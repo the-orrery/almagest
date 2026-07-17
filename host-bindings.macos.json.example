@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "host": "mac",
+  "source_roots": {
+    "personal/skill-vault": "/Users/example/personal/sources/skill-vault",
+    "work/skill-vault": "/Users/example/work/sources/skill-vault"
+  },
+  "bindings": {
+    "mac.codex.skills-root": {
+      "kind": "path",
+      "path": "/Users/example/.agents/skills"
+    },
+    "mac.qoder.skills-root": {
+      "kind": "path",
+      "path": "/Users/example/.qoder/skills"
+    }
+  }
+}
