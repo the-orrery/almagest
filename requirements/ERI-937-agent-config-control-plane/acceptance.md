@@ -97,6 +97,22 @@ Scenario: target 固定 source eligibility 且不做运行时 fallback
 ```
 
 ```gherkin
+Scenario: 只有两个 authored layer 且环境差异不取得配置权威
+  Given GitHub personal/shared base、Mac-local work 与四个已声明 target
+  When Almagest 为 Mac target 构造 authored layer 集合
+  Then 候选只来自 GitHub base 与 Mac-local work，并按 base 到 work 的确定顺序进入 resolve
+  And 该顺序不预先决定同名 asset 或字段的 winner
+  When Almagest 为 Windows target 构造 authored layer 集合
+  Then 候选只来自 GitHub base
+  And host、OS、consumer、consumer version、profile、workspace、root 与 binary path 只能参与 selector、render 或 binding 验证
+  And secret、账号与本机绝对路径只能为已声明引用提供 local binding
+  And rendered artifact、live 文件、cache、session 与 unmanaged 本机文件均不能成为 authored layer
+  When principal 要接纳一个 unmanaged 本机差异
+  Then 必须显式修改拥有 authority 的 authored source 并生成新 plan
+  And 不得把 live target 或任意 local 目录提升为最高优先级 override
+```
+
+```gherkin
 Scenario: work 越界全链路阻断且只由 principal 决定恢复
   Given 某个 work asset、field contribution 或含 work contribution 的派生 payload
   When Almagest 即将把它写入 GitHub、Windows 或其它非授权 source、cache、resolved、rendered、plan、receipt 或 live 位置
@@ -194,6 +210,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 四个 target 的 eligible source 映射固定；Mac Codex/Qoder 为 GitHub + work，Windows Codex/Claude 为 GitHub-only，运行时条件不得静默改写或 fallback。
 - [ ] work 越界写入在物化前拒绝；既有越界阻断受影响链路并告警；Almagest 不自动恢复，只有 principal 批准的精确 recovery plan 经重新验证后才能解除。
 - [ ] work 内容和派生元数据均不离开 Mac；每台机器只由同机 Agent 当场调用同机 Almagest，不存在中央汇总、receipt 上传或跨机报告。
+- [ ] authored overlay 只有 GitHub base 与 Mac-local work 两层；host/consumer 环境差异、本机 binding、rendered/live/unmanaged 状态均不得取得 layer authority。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收
