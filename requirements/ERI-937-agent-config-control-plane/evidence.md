@@ -79,7 +79,14 @@
 - GitHub personal/shared base 由 Mac 与 Windows 共同消费；Mac-local work overlay 不进入 GitHub，且只能留在 Mac 工作机。Mac effective config 为 base + work overlay，Windows 为 base-only，再分别做 consumer render。
 - Mac/Windows 是两个已存在的 host，参与 target identity；OS、consumer version、binary/root、profile 与 workspace 是被动观测属性或 selector。当前四类 target 为 Mac Codex/Qoder 与 Windows Codex/Claude，不建立 Mac personal/work 双 target；具体 ID 值留待 inventory 声明。
 - work-local 使用独立 source root；允许 local Git 无 remote，但不允许用同一 GitHub checkout 内的 `.gitignore` 充当 residency 安全边界。Almagest 约束自身管理的 source/cache/resolve/render/plan/receipt/live surfaces，不承诺管理通用 OS backup/sync。
-- A 因无显式防泄漏 policy 而拒绝；C 因制造虚假双 context 而拒绝；D 因 target 爆炸与 runtime 扩权而拒绝。02C capability 的 unsupported/block/degrade 尚未拍板。
+- A 因无显式防泄漏 policy 而拒绝；C 因制造虚假双 context 而拒绝；D 因 target 爆炸与 runtime 扩权而拒绝。该次提交未预判 02C，后续拍板见下节。
+
+## DEC-02C 拍板结果
+
+- 2026-07-16，principal 选择 B2：`unsupported/unknown` 默认阻断；Almagest 先输出阻断告警，只有对精确降级计划做 break-glass 二次确认后才能继续。
+- 确认只批准当前 target、plan hash 和预计算降级动作；只 apply 可安全拆分的可支持子集，并显式省略获批缺失项。无法形成安全降级计划时仍阻断。
+- override 不修改 source desired state，不可永久复用；receipt 记录 capability evidence、被省略项、损失、确认人、理由和结果，并将 target 标为 `applied_with_exception`，不冒充普通成功或合规。
+- B2 只处理 consumer capability gap；source trust、secret 泄漏、work residency/egress deny 等硬策略拒绝不可通过二次确认越过。A、B1、C、D 分别因伪成功、缺人工出口、隐式分类放行和语义自动改写而拒绝。
 
 ## 验证记录
 
@@ -101,8 +108,10 @@
 | 01B 拍板仓级回归 | 固化 C 且不把下一轴未决方案写入正式文档后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 01C 决策记录 | B 的 revision、Git 分工、派生/conflict 规则、Must/Later/Out、后果和验收均可审计 | 通过：01C 标记 `已拍板`；Almagest revision evidence 与 Git authored history 分开；C/D 的扩权责任明确拒绝 |
 | 01C 拍板仓级回归 | 固化 Git-backed revision 模型后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
-| 02A/02B 决策记录 | endpoint identity、source topology、work residency、边界与下游影响可审计，02C 不被偷跑 | 通过：02A/02B 标记 `已拍板`；四个稳定 target、GitHub base + Mac-local overlay、全链路 residency 与 OS backup Out 均明确；02C 保持待定 |
+| 02A/02B 决策记录 | endpoint identity、source topology、work residency、边界与下游影响可审计，02C 不被偷跑 | 通过：02A/02B 标记 `已拍板`；四个稳定 target、GitHub base + Mac-local overlay、全链路 residency 与 OS backup Out 均明确；该次提交保持 02C 待定 |
 | 02A/02B 拍板仓级回归 | 固化 target 与 source residency 模型后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
+| 02C 决策记录 | 默认阻断、二次确认、降级计划、审计、失效与不可越过边界均可审计 | 通过：B2 标记 `已选择`；无确认零写入、逐 plan override、exception receipt 和硬策略拒绝均已明确 |
+| 02C 拍板仓级回归 | 固化 B2 break-glass 合同后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 
 ## 验证边界
 
@@ -112,6 +121,6 @@
 
 ## 尚未产生的证据
 
-- DEC-02C 与 DEC-03—DEC-16 的拍板结果：后续逐项写入 `design.md`。
+- DEC-03—DEC-16 的拍板结果：后续逐项写入 `design.md`。
 - capability spec / ADR：所有相关决定稳定后再蒸馏。
 - 实现与 runtime 验证：不属于本设计阶段。

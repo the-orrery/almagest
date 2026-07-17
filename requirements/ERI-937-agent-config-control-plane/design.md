@@ -259,12 +259,12 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 
 ### DEC-02 目标拓扑与隔离能力
 
-- 状态：02A、02B 已拍板；02C 待给方案
+- 状态：已拍板
 - 依赖：DEC-01。
 - 决策轴：
   - 02A：target key 包含哪些维度：host、consumer，以及哪些事实只作为属性。
   - 02B：work 是 target context，还是 source/asset placement 与 residency policy。
-  - 02C：如何声明 target/consumer 的实际能力；所需隔离无法承载时是 `unsupported`、`block` 还是允许显式降级。
+  - 02C：如何声明 target/consumer 的实际能力；`unsupported/unknown` 如何阻断，以及人工 break-glass（受审计的例外放行）如何显式承担降级。
 
 #### 02A/02B 已拍板：稳定消费端 target + work-local 驻留策略
 
@@ -281,8 +281,30 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - `Must`：稳定 host/consumer ID；target 属性与 ID 分离；personal/shared 与 work-local source eligibility 可审计；任何 Windows target 的 source、cache、resolved、rendered、plan/receipt 和 live 内容都不包含 work-local payload。
 - `Later`：对单次 CLI/env invocation 的逐次 fingerprint 与 runtime 使用证明；当前只观测会改变默认 active config 的稳定绑定。
 - `Out`：为当前不存在的 personal/work 双 context、任意 cwd 或单次 invocation 建永久 target；仅靠 `.gitignore` 宣称 work residency 已受保护；把 OS backup/sync 生命周期纳入 Almagest。
-- 后果：DEC-03 定义 GitHub personal/shared 与 Mac-local work 的 authority/trust；DEC-04 定义 placement/egress deny、Mac union 和例外；DEC-05 固定 overlay；DEC-06/13 决定哪些脱敏元数据允许离开 Mac。02C 的 capability/unsupported 行为仍未拍板，不能从本决定推断。
+- 后果：DEC-03 定义 GitHub personal/shared 与 Mac-local work 的 authority/trust；DEC-04 定义 placement/egress deny、Mac union 和例外；DEC-05 固定 overlay；DEC-06/13 决定哪些脱敏元数据允许离开 Mac。capability/unsupported 行为由下述 02C 独立决定。
 - 验收断言：四个 consumer 均映射到唯一稳定 target；升级 consumer、改变 binary path/root 不产生新 target；Mac 两个 target 解析 base + work overlay，Windows 两个 target 只解析 base；任一 work payload 出现在 Windows 或未授权中间产物时必须被检测为 policy violation，而不是 drift success。
+
+#### 02C 已拍板：默认阻断 + 单次 break-glass 二次确认
+
+| 候选 | `unsupported/unknown` 行为 | 结果 |
+|---|---|---|
+| A：告警后自动跳过 | 继续 apply，自动省略不支持项 | 拒绝：容易把能力损失伪装成成功 |
+| B1：绝对硬阻断 | 告警只能被确认已读，不能继续 apply | 拒绝：缺少 principal 要求的人工担责出口 |
+| B2：默认阻断 + break-glass | 先阻断；对精确降级计划二次确认后，允许带审计地继续 | **已选择** |
+| C：按 required/optional 自动分流 | required 阻断，optional 自动告警跳过 | 拒绝：把是否接受损失预先藏进字段分类，弱于逐次人工确认 |
+| D：自动近似转换 | adapter 自动改写成 consumer 最接近的配置 | 拒绝：可能静默改变语义，并显著扩大 adapter 责任 |
+
+- 决定（v0.1，2026-07-16，approver: principal）：02C 选择 **B2——默认阻断 + 单次 break-glass 二次确认**。Almagest 将 consumer capability 评估为 `supported`、`unsupported` 或 `unknown`；证据缺失、过期或无法判定时属于 `unknown`，不能乐观视为支持。
+- 默认行为：plan 发现任何 `unsupported/unknown` 时先产生阻断告警，列出 target、受影响资产/字段、capability evidence、预期损失以及能否形成安全降级计划；未取得二次确认前不得写 live target。
+- break-glass 合同：二次确认只批准当前 target 的精确 plan/hash 与预计算降级动作，并要求记录理由。允许继续时只实施可安全拆分的可支持子集，明确省略获批的能力缺失项；不得借确认写入 adapter 无法证明安全的原始配置。若无法形成安全降级计划，仍保持硬阻断。
+- 审计与状态：receipt 至少记录 target、plan hash、capability 状态及证据、被省略项、预期与实际损失、确认人、理由、时间和结果。结果必须标记为 `applied_with_exception` 或等价非合规状态，不得报告为普通 `success/compliant`；source desired state 不因 override 被修改。
+- 生效范围：override 仅对一次 plan/apply 有效；输入、target、capability evidence 或 plan hash 变化即失效，后续 apply 必须重新评估并再次确认。交互式确认或自动化 approval artifact 的具体载体由 DEC-09/10 决定，不存在全局永久 `always allow`。
+- 边界：B2 只处理 consumer capability gap，不把硬策略拒绝改造成可确认告警。source trust、secret 泄漏、work residency/egress deny 等禁止项仍由 DEC-03/04/06 fail closed；违反这些规则时不得生成可越过的降级计划。
+- `Must`：三态 capability 判断；告警先于写入；默认阻断；逐 plan 二次确认；安全降级动作；完整 exception receipt；非合规状态持续可见。
+- `Later`：用 runtime probe 证明 consumer 是否实际消费降级结果，以及据此更新 capability evidence；不阻塞 v1 的 config/binding 闭环。
+- `Out`：静默跳过、自动近似改写、永久忽略某类 capability、把 exception 当成功、通过 break-glass 越过硬策略拒绝，或在无法安全拆分时强行写入。
+- 后果：DEC-07/08 必须给 capability observation、freshness 与降级渲染证据；DEC-09 必须展示阻断告警、损失和精确 plan hash；DEC-10 实现二次确认、事务边界和 receipt；DEC-12/16 持续报告生效中的 exception 并可解释其来源。
+- 验收断言：无二次确认时 `unsupported/unknown` 导致零写入；确认后只执行 plan 中已列出的安全降级，receipt 可还原谁在什么证据下接受了哪些损失；plan 输入变化后旧确认不可复用；硬策略拒绝永远不能通过 B2 放行。
 
 ### DEC-03 权威来源与信任
 
