@@ -113,6 +113,27 @@ Scenario: 只有两个 authored layer 且环境差异不取得配置权威
 ```
 
 ```gherkin
+Scenario: Schema-aware merge 只组合结构兼容的贡献
+  Given GitHub base 与 Mac-local work 中存在经过 authority/eligibility 检查的 authored contribution
+  And 对应 adapter schema 已固定 version、digest、stable key 与每个节点的 merge shape
+  When Almagest resolve 两个 layer
+  Then `atomic` 正文、文件和 opaque subresource 不做行级或递归 merge
+  And `granular-map` 中不相交的 key 可以组合，嵌套字段继续按声明的 shape 解析
+  And `set` 只按规范化 value 或稳定 element key 去重
+  And `keyed-list` 只按稳定 item ID 组合，不使用数组下标
+  And `ordered-list` 只按显式 item ID 与 schema 声明的 order key/约束生成确定顺序
+  And 每个 resolved 字段、元素和 item 都保留 source、layer、schema path、shape 与 revision provenance
+  When 可信 asset schema 缺失、不受支持或 identity 无法验证
+  Then resolve 返回结构化 unknown 或 block
+  And 不得 fallback 到 recursive deep merge、array append、文件扫描顺序或文本行 merge
+  When shape 不兼容、item ID 缺失/重复、order 约束无效、两个贡献命中同一 atomic leaf 或出现 remove/mask
+  Then 只产生带候选与 provenance 的 typed collision
+  And 由 DEC-05C 决定 winner、删除语义或必须阻断的 conflict
+  When merge schema version、stable key 或 ordering 规则变化
+  Then 旧 plan 与 approval 失效，并要求基于新 schema 重新 plan
+```
+
+```gherkin
 Scenario: work 越界全链路阻断且只由 principal 决定恢复
   Given 某个 work asset、field contribution 或含 work contribution 的派生 payload
   When Almagest 即将把它写入 GitHub、Windows 或其它非授权 source、cache、resolved、rendered、plan、receipt 或 live 位置
@@ -211,6 +232,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] work 越界写入在物化前拒绝；既有越界阻断受影响链路并告警；Almagest 不自动恢复，只有 principal 批准的精确 recovery plan 经重新验证后才能解除。
 - [ ] work 内容和派生元数据均不离开 Mac；每台机器只由同机 Agent 当场调用同机 Almagest，不存在中央汇总、receipt 上传或跨机报告。
 - [ ] authored overlay 只有 GitHub base 与 Mac-local work 两层；host/consumer 环境差异、本机 binding、rendered/live/unmanaged 状态均不得取得 layer authority。
+- [ ] merge 由版本化 schema 显式区分 atomic、granular map、set、keyed list 与 ordered list；缺可信 schema fail closed，缺失稳定 ID 或无效顺序只生成 typed collision，均不做通用 deep merge。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收
