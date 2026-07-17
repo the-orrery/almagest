@@ -159,7 +159,7 @@ Scenario: 非等价 overlay 必须显式声明 override 或 mask
   And 所有非 no-op 写入仍必须取得 DEC-03D 对当前精确 plan 的批准
   When collision 同时违反 authority、eligibility、residency、egress、secret 或 capability hard policy
   Then hard policy block 优先，DEC-05C、DEC-03B1 与普通 approval 均不能放行
-  And target reference 是否绑定 expected revision/digest 不在本场景预设，仍待 DEC-05D 后续拍板
+  And 合法 override/mask 必须按 DEC-05D 绑定 stable target locator 与 expected target semantic digest
 ```
 
 ```gherkin
@@ -186,8 +186,23 @@ Scenario: 两个 authority source 使用 inventory 引用原生 payload
   When Almagest render 任一 consumer 配置
   Then inventory 中的 ID、selector、operation、target reference 与 provenance 不得注入 SKILL.md frontmatter、instruction/prompt body 或 rendered config
   And payload 原有 consumer/asset frontmatter 的保留、删除或翻译仍由 DEC-08C 决定
-  When target reference schema 尚未完成后续拍板
-  Then 不得预设它只绑定 stable ID 或同时绑定 expected revision/digest
+  When work inventory 声明 override 或 mask
+  Then target reference 必须包含 stable logical/subresource/item locator
+  And 必须包含由固定 adapter/schema 对该精确目标单元计算的 expected canonical semantic digest
+  And 不得使用 raw file bytes、path、mtime、whole asset revision 或 whole source revision 代替精确目标摘要
+  When base 只发生格式化、payload 移动、其它字段或其它资产变化
+  And 被引用目标的 canonical semantic digest 保持不变
+  Then 旧 plan/approval 因 source revision 变化而失效
+  But 重新 plan 后 override/mask 意图仍有效，不标记 stale
+  When 被引用目标的 canonical semantic value 变化、目标消失或 schema identity 无法验证
+  Then target reference 标记 stale_target 并阻断普通 resolve/apply
+  And 诊断包含 target locator、expected/observed digest、目标差异与 provenance
+  And Almagest 不得自动刷新 digest、扩大 target 或继续套用旧意图
+  When principal 明确要求按新 base 语义持久修复
+  Then operator Agent 才能更新或删除 override/mask，或更新 expected digest
+  And 该修改形成新的 work source revision 并重新 plan
+  When principal 只要求处理当前一次
+  Then 只能走 DEC-03B1 transient resolution，不得永久刷新 digest
 ```
 
 ```gherkin
