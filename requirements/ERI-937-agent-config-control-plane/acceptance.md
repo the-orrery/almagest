@@ -242,7 +242,7 @@ Scenario: 每台 host 通过显式 typed registry 绑定本机值
   When registry 为 secret slot 提供 binding
   Then registry 只能保存显式 provider kind 与 provider locator
   And secret value 的创建、轮换、撤销与存储仍由外部 credential provider 负责
-  And registry、plan、receipt 或日志是否可披露 locator/value 仍由 DEC-06C 决定
+  And plan、diff、receipt、日志、错误与 explain 对 registry locator/value 的披露必须遵守 DEC-06C 的 per-surface safe view
   When 环境变量、Keychain、credential manager、本机文件或其它 provider 中存在候选值
   But registry entry 未显式引用该 provider 与 locator
   Then 候选值不得被自动发现、adopt 或用于 render
@@ -269,6 +269,45 @@ Scenario: 每台 host 通过显式 typed registry 绑定本机值
   When slot 零匹配、provider locator 失效或权限不足
   Then 保持 unresolved/error evidence
   And required/optional、诊断与恢复行为仍由 DEC-06D 决定
+```
+
+```gherkin
+Scenario: 所有 report surface 从 schema 生成最小安全视图
+  Given adapter/schema 已为 reportable 字段声明 portable-safe、local-sensitive、secret 或 unknown sensitivity
+  And plan、diff、receipt、日志、错误与 explain 各有独立版本化 allowlist schema
+  When Almagest 生成任一 report surface
+  Then 必须先从 rich internal state 投影 safe view，再序列化、记录或返回
+  And 不得先序列化完整对象再用字段名、正则或 best-effort scrub 脱敏
+  When 字段 sensitivity 为 portable-safe
+  Then plan/diff 或按 ID explain 可提供精确 before/after
+  And compact summary、receipt 与常规日志仍只保存各自职责所需的最小结构
+  When 字段 sensitivity 为 local-sensitive
+  Then 默认 safe view 只返回 slot/entry ID、type、scope、change kind、状态和结构化 redaction marker
+  And summary、plan/diff value、receipt、日志与错误不得包含绝对路径、账号/profile、provider locator、machine ID 或 local endpoint
+  When principal 明确确认当前 host 上一个精确 explain field/slot
+  And schema 证明该 local-sensitive 字段不是 secret
+  Then 本次 explain 可以显示该单一字段
+  And confirmation 必须绑定 current host、target、plan/explain identity、field/slot ID 与本次调用
+  And 不得批量、通配、持久化、跨 host 或复用
+  And reveal 结果不得进入 receipt、log 或 cache
+  When 字段 sensitivity 为 secret
+  Then 所有 surface 只能返回 absent、present、changed、invalid 或 permission_denied 等安全状态
+  And secret value 不得进入任何 reportable object、hash、fingerprint、exception、trace、telemetry、cache key 或 reveal
+  When 字段 sensitivity 缺失、不受支持或动态结构无法验证
+  Then 值必须隐藏并返回 unknown_sensitivity/block
+  And 不得退回 key-name regex、完整本地 debug output 或默认 non-secret
+  When provider 返回包含 secret canary 的 stdout、stderr、exception message 或 response body
+  Then 原始内容不得透传
+  And adapter 只能输出 stable diagnostic code、provider kind、operation、safe status 与 allowlisted metadata
+  And 无法证明安全的字段必须丢弃并标记 diagnostic_redacted
+  When 同一 internal state 被投影到 plan、receipt、log 与 explain
+  Then 每个 surface 只能取得自己的 allowlist 字段
+  And 不得因复用同一序列化对象扩大披露
+  When safe view 包含 Mac work-derived ID、状态、数量、digest 或 redaction metadata
+  Then 它仍不得离开 Mac
+  When consumer render/live 需要实际 secret material
+  Then 该投影与写入不属于 report surface
+  And 其安全合同仍由 DEC-08/10 决定
 ```
 
 ```gherkin

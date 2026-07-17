@@ -725,7 +725,7 @@ target ref = stable asset/subresource/item locator + expected target semantic di
 
 ### DEC-06 Secret 与本地参数
 
-- 状态：06A—06B 已拍板；06C—06D 待给方案
+- 状态：06A—06C 已拍板；06D 待给方案
 - 依赖：DEC-03—DEC-05。
 - 决策轴：
   - 06A：secret value/reference、本机绝对路径、账号、OS/host 参数如何分类。
@@ -735,7 +735,7 @@ target ref = stable asset/subresource/item locator + expected target semantic di
 
 #### 06A 已拍板：Portable declaration、host-local binding、observed host fact 三分类
 
-本轴只决定 secret、路径、账号与 host 差异在配置模型中属于哪类事实。binding 的物理存储、provider、scope 与补值顺序现由 06B 固定；脱敏格式和缺值后的诊断流程分别留给 06C—06D。
+本轴只决定 secret、路径、账号与 host 差异在配置模型中属于哪类事实。binding 的物理存储、provider、scope 与补值顺序现由 06B 固定，安全披露由 06C 固定；缺值后的诊断流程留给 06D。
 
 | 选项 | 分类模型 | 结论 |
 |---|---|---|
@@ -769,7 +769,7 @@ observed host fact ──> selector / capability / validation evidence
 - `Later`：Agent authoring hint、从既有 consumer 配置推断候选分类、交互式 binding bootstrap；所有推断在明确采纳前都不取得 authority。
 - `Out`：secret/non-secret 二分替代 data-role 分类、任意 local overlay、按环境变量或 adapter 惯例隐式取得 authority、把当前 host observation 写回 desired source、把 secret value/绝对路径/machine ID 作为 logical asset ID，以及在 06A 预设 credential store 或 binding 文件格式。
 - 接受的代价：每个 adapter/schema 必须显式标出 local-sensitive 字段的 role，Agent 遇到旧配置或含混字段时需要先补分类而不能直接投影。以此换取“需要什么”“本机填什么”“当前观察到什么”三种事实不会互相冒充。
-- 后果：06B 已为 declaration→binding 固定 provider、存放与合法 scope，且不让 binding 获得 authored authority；06C 必须按三类决定 value、reference 与 observation 的披露边界；06D 必须区分 slot 缺值、provider/ref 失效与 observation 不满足。DEC-07 分栏盘点 authored/binding/observed，DEC-08 只在 target render 时消费合法 binding，DEC-09/12 区分 source drift、binding drift 与 observation/capability 变化，DEC-16 保留分类与 provenance 而不泄漏值。
+- 后果：06B 已为 declaration→binding 固定 provider、存放与合法 scope，且不让 binding 获得 authored authority；06C 已按三类固定 value、reference 与 observation 的安全披露边界；06D 必须区分 slot 缺值、provider/ref 失效与 observation 不满足。DEC-07 分栏盘点 authored/binding/observed，DEC-08 只在 target render 时消费合法 binding，DEC-09/12 区分 source drift、binding drift 与 observation/capability 变化，DEC-16 保留分类与 provenance 而不泄漏值。
 - 验收断言：相同 source declaration 在不同 host 可绑定不同本机值而不改变 authored revision；secret value、绝对路径、实际账号和 machine ID 不进入 portable source；OS/权限/登录状态等 observation 不取得配置 authority；binding 不能新增或覆盖未声明字段；任何本机信息都不能因被命名为“参数”而成为第三 overlay layer；分类未知时 fail closed。
 
 #### 06B 已拍板：显式 typed host-local binding registry
@@ -807,14 +807,60 @@ host-local typed binding registry
 - 唯一匹配：对一个 `(slot ID, target)`，合法 scope 解析后必须至多得到一个 binding candidate。多个 host/target entry 同时命中时返回 `ambiguous_binding/block`，不采用 exact-target-wins、last-writer-wins 或 provider 顺序；零匹配保持 unresolved，required/optional 与恢复行为由 06D 决定。
 - 补值与替换：默认 binding 只能 `fill` 空 slot，或把既有 provider-neutral logical reference `resolve` 为本机 locator/value。只有 source slot contract 明确声明 `replaceable` 并允许当前 scope 时，registry 才能以 `replace-ref` 为当前 target 替换逻辑 reference；它仍不得覆盖 concrete portable value、普通 authored 字段或 source 内容。
 - 变更权：operator Agent 可按 principal 指令新增、修改或删除本机 registry entry；这是受管配置写入，必须进入 DEC-03D 的精确 non-no-op plan。Almagest 不自动从 env、provider、native/live config 或 observation 反向写 registry。
-- Revision 边界：registry schema、当前 registry revision/digest、命中的 entry identity 与 provider kind 必须成为 plan/verify 输入；任何变化使旧 plan/approval 失效。plan、receipt 和日志具体能披露哪些 locator/value 信息留给 06C。
+- Revision 边界：registry schema、当前 registry revision/digest、命中的 entry identity 与 provider kind 必须成为 plan/verify 输入；任何变化使旧 plan/approval 失效。plan、receipt、日志和错误只能按 06C 的 safe view 披露这些信息。
 - 驻留边界：registry 及其值、locator、存在性和 digest 全部留在当前 host；由 work declaration 派生的 binding metadata 继续继承 04D 的 Mac-only 边界。两台 host 可以对同一 base slot 绑定不同值，但不得交换 registry 或生成跨机差异报告。
 - `Must`：一台 host 一份逻辑 typed registry；slot/type/scope/mode 显式；只允许 host-wide/exact-target；唯一匹配；secret value provider-owned；registry revision 进入 plan；所有写入走 03D；binding 不能取得 authored authority。
 - `Later`：由 Agent 辅助 bootstrap registry entry、provider health probe 与 provider adapter 扩展；候选在 principal 批准本机 plan 前不得写入 registry。
 - `Out`：隐式 env/keychain/file 命名约定、provider 自动扫描/adopt、从 consumer native/live config 反向补 registry、跨机同步 registry、在 registry 保存 secret value、通用 local patch、scope precedence 和未声明的 reference replacement。
 - 接受的代价：每台机器需要独立维护 registry，并为 slot、scope、mode 和 provider locator 多保存显式元数据；同一 slot 出现多个候选时，即使可按“最具体”猜出结果也必须先处理冲突。以此换取 binding 可盘点、可计划、可验证，且 provider/live 状态不会暗中取得配置权威。
-- 后果：06C 必须对 registry value、provider locator、entry identity 与 observation 分级披露；06D 必须分别处理零匹配、ambiguous binding、dangling locator、provider 权限和 value validation。DEC-07 必须把 registry entry 与 provider observation 分栏；DEC-08 只能消费唯一合法 binding；DEC-09 固定 registry revision 与命中 entry；DEC-10 对 registry 写入提供原子性/备份/回滚；DEC-12 将 registry revision/value mismatch 视为 binding drift，而非 source overlay；DEC-16 在本机解释 slot→entry→provider→render 链路。
+- 后果：06C 已对 registry value、provider locator、entry identity 与 observation 固定分级披露；06D 必须分别处理零匹配、ambiguous binding、dangling locator、provider 权限和 value validation。DEC-07 必须把 registry entry 与 provider observation 分栏；DEC-08 只能消费唯一合法 binding；DEC-09 固定 registry revision 与命中 entry；DEC-10 对 registry 写入提供原子性/备份/回滚；DEC-12 将 registry revision/value mismatch 视为 binding drift，而非 source overlay；DEC-16 在本机解释 slot→entry→provider→render 链路。
 - 验收断言：相同 authored slot 可在 Mac/Windows registry 中绑定不同本机值；未登记的 env/provider/live 值不会自动生效；secret value 不进入 registry；scope 未授权、多个 entry 命中或未声明 replace-ref 均阻断；registry 变更使旧 plan 失效并需要 principal 批准；registry 不跨机、不进 Git、不成为第三 authored layer。
+
+#### 06C 已拍板：Schema-driven、per-surface safe view
+
+本轴决定 plan、diff、receipt、日志、错误和 explain 如何暴露配置事实。安全输出不是把完整对象序列化后再用正则打码，而是从 rich internal state 投影出版本化、字段白名单化的 safe view；不允许披露的字段从未进入 reportable object。
+
+| 选项 | 输出策略 | 结论 |
+|---|---|---|
+| A：字段名/正则打码 | 先生成完整输出，再替换 token/password/secret 等命中值 | 拒绝：依赖命名惯例，非标准字段、嵌套对象和 provider 原始错误容易漏出 |
+| B：Schema-driven per-surface safe view | 按 sensitivity class 与输出 surface 生成独立白名单结构 | **已选择** |
+| C：所有 value 一律隐藏 | 任何 surface 只显示字段名、状态和计数 | 拒绝：虽然简单安全，但 portable 配置 diff 不足以让 principal 审批真实变化 |
+| D：本机完整输出，外发前脱敏 | 本地 plan/log/error 保留全部值，只在 egress 时处理 | 拒绝：secret 可能先进入 Agent context、终端历史、日志、异常和临时文件，已经失去控制 |
+
+| Sensitivity class | Plan / diff / default explain | Receipt | Log / diagnostic | 定向 reveal |
+|---|---|---|---|---|
+| `portable-safe` | 可按 ID 取得精确 before/after；紧凑摘要仍由 09C 定义 | action/result/revision/digest；不复制无必要正文 | stable ID、change kind、状态、原因码 | 无额外限制 |
+| `local-sensitive` | 默认只给 slot/entry ID、type、scope、change kind、状态与结构化 redaction marker | 不保存 value/locator，只保存本机 opaque identity、结果与 redaction reason | 不保存 value/locator/path/account/machine ID | 仅 non-secret 字段可在当前 host、当前精确 explain 中经 principal 单次确认后显示 |
+| `secret` | 只给 `absent/present/changed/invalid/permission_denied` 等状态；不读值用于报告 | 状态、provider kind 与操作结果；无 value、locator 或 value-derived token | 状态与安全原因码 | **永不 reveal** |
+| `unknown` | 隐藏并 `unknown_sensitivity/block` | 仅记录阻断与分类缺失 | 安全诊断，不透传原值 | 禁止 |
+
+```text
+rich internal state
+        │ typed sensitivity + surface policy
+        ▼
+safe projection boundary
+   ├── plan/diff view
+   ├── receipt view
+   ├── log/diagnostic view
+   └── explain view
+
+secret value ──X──> reportable object / hash / fingerprint / raw error
+```
+
+- 决定（v0.1，2026-07-17，approver: principal）：06C 选择 **B——schema-driven、per-surface safe view**。adapter/schema 必须为可报告字段声明 sensitivity class；每种 surface 使用独立、版本化的 allowlist schema，不复用可包含 secret/local value 的 render/internal object。
+- Secret 不可序列化：secret value 不得进入 plan、diff、receipt、日志、错误、trace、telemetry、cache key、hash、fingerprint、exception message 或 explain。禁止对 secret value 输出稳定/非稳定 digest，因为低熵值可被离线猜测，任意 digest 也会制造跨运行关联标识；报告只使用 provider/registry 已有的安全 revision 与状态证据。
+- Local-sensitive 默认边界：绝对路径、账号/profile、provider locator、machine ID、local endpoint 与其它本机敏感值默认不进入 summary、plan/diff value、receipt、日志或错误。safe view 必须返回 stable slot/entry ID、type、scope、change kind、状态，以及结构化 `{redacted: true, sensitivity, reason}`，不能只输出语义不明的 `***`。
+- Portable-safe 边界：被 schema 明确标记为 `portable-safe` 的配置可在 plan/diff 或按 ID explain 中显示精确 before/after，以支撑 DEC-03D 审批；compact summary、receipt 和常规日志仍只保存完成职责所需的最小结构，不因“safe”复制整段 skill/instruction 正文。
+- 定向 reveal：只有 schema 明确标记为 non-secret 的 `local-sensitive` 字段可被 reveal。principal 的单次确认必须绑定 current host、target、plan/explain identity、精确 field/slot ID 与本次调用；不得批量、通配、跨 host、持久化或复用。reveal 结果不写 receipt/log/cache，且 04D 的 work Mac-only 边界继续生效。
+- Provider/error 边界：provider 原始 stdout/stderr、exception message、response body 和命令回显均视为 unsafe input，不得直接透传。provider adapter 必须在边界内映射为 stable diagnostic code、provider kind、operation、safe status 与 allowlisted metadata；无法证明安全的字段丢弃并标记 `diagnostic_redacted`。
+- Unknown fail closed：字段缺少 sensitivity、schema 不受支持，或嵌套/动态值无法套用 allowlist 时，值先隐藏并返回 `unknown_sensitivity/block`；不得退回 key-name regex、best effort serialization 或“仅本机所以安全”。
+- Surface/egress 边界：所有 safe view 仍继承 04D 驻留策略；Mac work-derived ID、状态、数量、digest 和 redaction metadata 也不得离开 Mac。06C 不引入远程 telemetry、中央日志或跨机 receipt，也不决定 consumer render/live 是否需要 secret material，后者由 DEC-08/10 的投影与写入合同处理。
+- `Must`：schema sensitivity 必填；safe projection 先于 serialization/logging；secret value 永不报告/哈希/reveal；local-sensitive 默认隐藏；portable-safe 精确 diff 可审；unknown 隐藏并阻断；raw provider error 不透传；所有 surface 有独立 allowlist schema 和负向 fixture。
+- `Later`：更多细粒度 sensitivity class、provider-specific safe metadata 和受控 explain ergonomics；不得降低 secret 永不序列化或 unknown fail-closed 基线。
+- `Out`：regex/key-name 作为主防线、serialize-then-scrub、secret hash/fingerprint、完整本地 debug dump、raw stdout/stderr/exception 透传、全局 reveal 开关、持久 reveal grant、以加密日志或“仅本机”替代 safe view，以及把 consumer secret render 混入 report surface。
+- 接受的代价：schema/adapter 要维护 sensitivity 与多套 surface DTO，排障时默认看不到本机值，provider 集成也不能直接复用原始错误文本；需要额外的 safe diagnostic 和单字段 explain 流程。以此换取 Agent 操作、日志和失败路径不会成为绕开 registry/provider 边界的 secret 出口。
+- 后果：06D 的所有错误状态和 resolution action 必须能在 safe diagnostic 中表达而不依赖原值；DEC-07 inventory 只能保存允许的 binding/observation metadata；DEC-09 plan/approval 使用 safe diff；DEC-10 receipt/rollback evidence 不保存 secret/local-sensitive value；DEC-12 drift 依赖 registry/provider revision 与状态而非 secret digest；DEC-15 为每类 surface 和 provider error 维护 secret-canary 负向 fixture；DEC-16 explain/audit 复用相同 safe projection。
+- 验收断言：向任意 secret slot 注入 canary 后，plan/diff/receipt/log/error/trace/explain 均无 canary 或其 hash；portable-safe 字段仍可获得精确 diff；local-sensitive 默认只返回结构化 redaction marker，单次定向 reveal 只能显示获批的 non-secret 字段；unknown sensitivity 阻断；provider 原始错误中的 secret 不会透传；不同 surface 不因复用同一对象扩大披露。
 
 ### DEC-07 Inventory
 
