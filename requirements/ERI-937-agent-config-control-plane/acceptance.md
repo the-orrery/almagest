@@ -73,7 +73,7 @@ Scenario: 驻留权限跟随 source 且 work source 无单项例外
   And Mac-local work source 中存在另一个受管 asset
   When Almagest 为 Mac target 解析 source eligibility
   Then GitHub asset 与 work asset 都可以成为 Mac Codex/Qoder 的候选
-  When Almagest 为 Windows target 或跨机汇总面解析 source eligibility
+  When Almagest 为 Windows target 解析 source eligibility
   Then GitHub asset 可以成为 Windows Codex/Claude 的候选
   And work asset、work field contribution 及任何含 work payload 的派生物均被排除
   And 任一 work payload 已出现在 GitHub、Windows 或其它非授权位置时必须返回硬策略 block
@@ -112,6 +112,25 @@ Scenario: work 越界全链路阻断且只由 principal 决定恢复
   Then operator Agent 只能执行该精确恢复动作
   And 执行后必须重新 inventory 与 verify
   And 只有证据证明越界 payload 已消失且输入重新固定，才能解除阻断并重新生成普通 plan
+```
+
+```gherkin
+Scenario: work 内容与元数据零离机且每台机器只做本地即时操作
+  Given Mac-local work source 及其 inventory、plan、receipt、evidence 和诊断
+  When Mac operator Agent 在当前操作中调用 Mac 本机 Almagest
+  Then 完整结构化结果只在 Mac 本机产生和消费
+  And operator Agent 可以在当前会话中向 principal 解释结果并请求决策
+  And Almagest 不生成或推送跨机报告、状态信封、receipt 或远端 evidence reference
+  When Windows operator Agent 调用 Windows 本机 Almagest
+  Then Windows 只解析本机 GitHub base target
+  And Windows 不查询也无法观察 Mac work 的存在性、状态、名称、路径、digest、数量、时间或诊断
+  When 任一待导出 artifact 无法证明完全不含 work content 或 metadata
+  Then 写入 GitHub、Windows 或中央端的 egress 必须阻断
+  And 本机只读 inventory 与 explain 仍可继续
+  And 脱敏、hash、加密或 acknowledgment 均不能放行
+  When principal 明确要求某项内容跨机共享
+  Then 必须将其重新编写或迁移为新的 GitHub authored asset
+  And 形成新 source revision 并进入 DEC-03D 新 plan
 ```
 
 ```gherkin
@@ -174,6 +193,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 驻留权限只跟 source；Mac-local work 全量 Mac-only，任何 asset、标签或临时批准都不能单独放宽。
 - [ ] 四个 target 的 eligible source 映射固定；Mac Codex/Qoder 为 GitHub + work，Windows Codex/Claude 为 GitHub-only，运行时条件不得静默改写或 fallback。
 - [ ] work 越界写入在物化前拒绝；既有越界阻断受影响链路并告警；Almagest 不自动恢复，只有 principal 批准的精确 recovery plan 经重新验证后才能解除。
+- [ ] work 内容和派生元数据均不离开 Mac；每台机器只由同机 Agent 当场调用同机 Almagest，不存在中央汇总、receipt 上传或跨机报告。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收

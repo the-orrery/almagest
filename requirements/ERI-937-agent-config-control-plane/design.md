@@ -45,6 +45,8 @@ Principal（目标、歧义裁决、逐变更批准）
             └─ Consumer config（被治理的 Codex / Claude / Qoder 配置）
 ```
 
+每次调用都绑定当前 host，并在本次操作中当场完成（in-operation / in-time）：Mac 上的 Agent 只调用 Mac 本机 Almagest，Windows 上的 Agent 只调用 Windows 本机 Almagest。Almagest 不远程操作另一台机器，不设中央控制端，也不生成跨机汇总报告；principal 需要处理哪台机器，就在该机器的 Agent 会话中取得本机结果并决策。
+
 这一定义带来以下全局约束：
 
 1. canonical interface（规范主接口）必须是稳定、非交互、机器可消费的命令/API 合同，提供结构化 schema、诊断码、退出码、plan/receipt ID、provenance、diff 和可选 resolution action；具体传输形态留给实现阶段。
@@ -121,7 +123,7 @@ Principal（目标、歧义裁决、逐变更批准）
 | DEC-10 | 安全实施 | ownership、计划等价、原子性、幂等、备份和恢复怎么做 | apply safety contract |
 | DEC-11 | Effective 验证（Later） | 如何分级证明 Codex/Qoder/Claude 真正加载或使用 | runtime evidence contract，不作为 v1 gate |
 | DEC-12 | 漂移检查 | 查什么、何时查、谁负责、何时自动修 | drift/reconcile policy |
-| DEC-13 | 跨机配置一致性 | 分发、离线、版本错位、receipt、汇总如何工作 | cross-host config coordination contract |
+| DEC-13 | 跨机配置一致性 | 共享 source 下两台机器如何各自在本机达到正确状态并处理离线、版本错位 | independent per-host config contract |
 | DEC-14 | 配置资产生命周期 | bootstrap、import、迁移、升级、废弃和恢复怎么走 | config lifecycle state machine |
 | DEC-15 | Consumer 兼容与扩展 | 新 consumer/root/格式如何描述、接入和测试 | compatibility/extension contract |
 | DEC-16 | 审计与可解释性 | 谁在何时把什么从哪里投影到哪里，为什么生效 | audit/receipt/explain contract |
@@ -143,7 +145,7 @@ Principal（目标、歧义裁决、逐变更批准）
 | DEC-10 | Must | 原子性、备份和 rollback 只针对受管配置资源，不升级为整机事务或进程恢复 |
 | DEC-11 | Later | 可以定义 runtime evidence contract，但不能成为 v1 apply/config-drift 的前置 gate |
 | DEC-12 | Must + Later | source→live/binding drift 是 v1；effective/runtime drift 与自动恢复是 Later；daemon 生命周期 Out |
-| DEC-13 | Must | 两台机器各自达到目标配置并可汇总 receipt；不预设中央控制端，也不管理远端进程 |
+| DEC-13 | Must | 两台机器各自通过本机 Agent 达到目标配置；不上传 receipt、不做跨机汇总、不设中央控制端或管理远端进程 |
 | DEC-14 | Must + Out | 管配置 bootstrap/import/migrate/deprecate/restore；host、binary、plugin package 生命周期 Out |
 | DEC-15 | Must + Later | config capability/adapter/fixture 是 v1；runtime probe 兼容属于 Later |
 | DEC-16 | Must + Later | v1 审计配置 plan/apply/verify；runtime failure/evidence 的审计扩展属于 Later |
@@ -457,14 +459,14 @@ Principal（目标、歧义裁决、逐变更批准）
 
 ### DEC-04 Source 驻留与投影策略
 
-- 状态：04A、04B、04C 已拍板；04D 待给方案
+- 状态：04A—04D 已拍板
 - 依赖：DEC-02、DEC-03。
 - 决策轴：
   - 04A：驻留权限是跟随 source，还是允许每项 asset 单独声明 allowed hosts 或例外。
   - 04B：每个已知 target 可以从哪些 source class 取得候选输入，以及 source eligibility 在 overlay/render 前如何固定。
   - 04C：如何在 source/cache/resolved/rendered/plan/receipt/live 全链路执行默认拒绝、零例外的 work 防泄漏，并报告和恢复违规状态。
-  - 04D：哪些脱敏元数据允许跨机；无法证明 residency 时的停止条件与迁移要求。
-- 初步验收：work-only payload 进入 Windows 或非授权中间产物必须 `block`；不存在逐 asset 放宽或临时例外；不存在虚构的 Mac personal/work 双 target。
+  - 04D：work 内容或派生元数据是否允许离开 Mac；无法证明 residency 时的停止条件与迁移要求。
+- 初步验收：work-only payload 或派生元数据进入 Windows、GitHub 或非授权中间产物必须 `block`；不存在逐 asset 放宽或临时例外；不存在虚构的 Mac personal/work 双 target 或中央汇总面。
 
 #### 04A 已拍板：驻留权限只跟 source，work source 全量 Mac-only
 
@@ -478,12 +480,12 @@ Principal（目标、歧义裁决、逐变更批准）
 - 决定（v0.1，2026-07-17，approver: principal）：04A 采用 **source 级硬驻留**。source 是驻留策略的最小声明与执行单元；其下所有 asset、field contribution 和 content-bearing 派生物自动继承该边界。任何包含 work source contribution 的 resolved/rendered/plan/receipt/live payload 都按更严格的 Mac-only 边界处理。
 - source 边界：Mac-local work 使用与 GitHub checkout 分离的独立 source root；不能靠 `.gitignore`、文件名、目录名或 Agent 猜测资产性质建立安全边界。`source_id/source_class` 的受管 inventory 是判定入口，具体 manifest/schema 留给 DEC-07。
 - 无例外合同：asset 不拥有 `allowed_hosts` 放宽字段，不支持 per-file waiver、临时 egress approval 或把 work 内容复制到 GitHub/Windows 后再补标签。若未来确实需要共享某项内容，principal 必须明确要求把它改写/迁移为 GitHub personal/shared 的 authored asset，形成新 source revision，并按 DEC-03D 重新 plan 和批准；这不是驻留例外。
-- 派生继承：纯 GitHub 输入可以为 Mac 或 Windows 生成派生物；只要输入集合含任一 work contribution，整个 content-bearing 派生结果就是 Mac-only。04D 可以讨论哪些不含 work payload、不可还原内容的最小元数据允许跨机，但不能反向放宽本项。
+- 派生继承：纯 GitHub 输入可以为 Mac 或 Windows 生成派生物；只要输入集合含任一 work contribution，整个 content-bearing 派生结果就是 Mac-only。04D 进一步确认 work-derived metadata 也不离开 Mac，不能以“不可还原内容”为由建立跨机例外。
 - `Must`：source 级 residency classification；asset 与字段贡献自动继承；work source 全量 Mac-only；混合派生取最严格边界；无逐 asset 放宽和临时例外；违规输入 fail closed。
 - `Later`：若未来出现第三种真实驻留边界，新增独立 source class/root 并重开本轴；当前不预建通用标签表达式或例外系统。
 - `Out`：per-asset allowed-host policy、资产白名单、临时外发 approval、路径/文件名启发式、用 `.gitignore` 充当安全边界，以及把 work payload 先复制到非授权位置再检测。
 - 接受的代价：即使某个 work asset 后来被判断为可共享，也不能原地加例外；必须经过显式 source 迁移、内容审阅、新 revision 和逐 plan 批准。以此换取规则简单、可静态验证且不会因单项标签遗漏而泄漏。
-- 后果：04B 只需生成 Mac 的 GitHub + work union 与 Windows 的 GitHub-only 投影；04C 不再设计例外授权，只设计全链路阻断、告警与恢复；04D 只能定义不携带或不可还原 work payload 的元数据边界；DEC-07/09/13/16 必须保留 source residency provenance 并解释拒绝原因。
+- 后果：04B 只需生成 Mac 的 GitHub + work union 与 Windows 的 GitHub-only 投影；04C 不再设计例外授权，只设计全链路阻断、告警与恢复；04D 要求全部 work evidence 留在 Mac；DEC-07/09/16 必须在本机保留 source residency provenance 并解释拒绝原因，DEC-13 不得上传或汇总它。
 - 验收断言：任一 GitHub source asset 可进入已授权 Mac/Windows target；任一 work source asset 或含 work contribution 的派生物在 Windows、GitHub 或其它非授权位置出现时必须阻断；不存在能放宽该结论的 asset 字段或 approval；从 work 迁移到 GitHub 必须成为显式 authored change、新 revision 和 DEC-03D 新 plan，而不是更新标签。
 
 #### 04B 已拍板：target 固定 eligible source 集合，Mac 双源、Windows 单源
@@ -504,7 +506,7 @@ Principal（目标、歧义裁决、逐变更批准）
 - `Must`：四个已知 target 的显式 source eligibility；Mac Codex/Qoder 双源；Windows Codex/Claude 单源；resolve 前完成 eligibility filter；结果确定且可解释；work source 对 Windows 永不成为候选。
 - `Later`：新增 host、consumer 或独立 source class 时，显式登记新的 target→source 映射并重做驻留审阅；当前不建设自动推断拓扑的规则引擎。
 - `Out`：按 cwd/profile/operator/临时可用性动态选 source、Windows 发现或读取 work source、Mac 在 work source 故障时静默降级为合规、在本轴决定 merge precedence，以及在本轴决定 consumer 的目录与 frontmatter 转换。
-- 接受的代价：每增加一个 target 或 source class 都必须显式维护映射；Mac-local work 暂时不可访问时，即使 GitHub base 完整也不能得到“配置合规”的成功结果。以此换取跨机投影不会依赖环境猜测或 fallback。
+- 接受的代价：每增加一个 target 或 source class 都必须显式维护映射；Mac-local work 暂时不可访问时，即使 GitHub base 完整也不能得到“配置合规”的成功结果。以此换取跨 host 的 source eligibility 不会依赖环境猜测或 fallback。
 - 后果：DEC-05 只能在本轴给出的 eligible source 内定义 overlay、merge、remove 与 conflict；DEC-07 必须盘点 target/source 身份及可访问性；DEC-08 只能把已 resolve 的目标状态适配给对应 consumer；DEC-09 必须把 eligibility filter、缺失输入和拒绝原因纳入 plan 证据。若 work 内容要改为跨机共享，仍走 04A 的 GitHub authored migration 与新 plan，不修改映射来绕过驻留。
 - 验收断言：Mac Codex/Qoder 的候选 source 集合恰为 GitHub + work，Windows Codex/Claude 恰为 GitHub-only；selector 只能缩小集合，不能扩大；任何运行态条件都不能静默改写映射；已登记的 Mac work source 缺失或不可证明时停止 resolve/apply，而不是以 GitHub-only 冒充成功；本轴不规定 asset merge winner 或 rendered 格式。
 
@@ -521,16 +523,44 @@ Principal（目标、歧义裁决、逐变更批准）
 - 决定（v0.1，2026-07-17，approver: principal）：任何 work asset、field contribution 或含 work contribution 的 content-bearing 派生物，在进入 `source/cache/resolved/rendered/plan/receipt/live` 任一非授权位置前都必须被拒绝，产生零越界写入；若越界状态已经存在，则立即阻断依赖该状态的 resolve、普通 plan 与 apply，并通过 operator Agent 告警 principal。
 - 两类 enforcement：Almagest 控制的写入采用 pre-write deny，不允许“先复制、后扫描”；consumer 或其它组件已经生成、且 Almagest 没有写权限的 cache/live 等位置采用只读 detection。被发现不等于 Almagest 取得管理权，不能据此自动修改该位置。
 - 与 03B2 的边界：03B2 按数据流方向识别“downstream 内容反向进入 authority source”，无论内容属于 personal 还是 work；04C 按驻留策略识别“work 内容进入非授权位置”，无论由哪条数据流造成。同一事实同时命中时可以共享 evidence，但必须同时满足两项恢复条件，不能用修复其中一项来解除另一项阻断。
-- 告警合同：Almagest 返回机器可消费的结构化诊断，至少能引用 detection、违规 stage/location、work provenance 证据、受影响 target/action 和当前阻断状态；operator Agent 将其翻译成人话交给 principal。稳定 schema、诊断码和不携带 work payload 的跨机摘要边界分别由 DEC-07/09/16 与 04D 细化，本轴不建设独立通知平台。
+- 告警合同：Almagest 在当前 host 返回机器可消费的结构化诊断，至少能引用 detection、违规 stage/location、work provenance 证据、受影响 target/action 和当前阻断状态；同机 operator Agent 在本次会话中将其翻译成人话交给 principal。稳定 schema 与诊断码由 DEC-07/09/16 细化；04D 禁止把该诊断转成跨机摘要，本轴不建设独立通知平台。
 - 阻断范围：只读 inventory、diff、explain 和取证可以继续；依赖该违规状态的 resolve、普通 plan 与 apply 保持阻断。普通变更 approval、DEC-02C break-glass、DEC-03B1 单次冲突裁决以及“已知悉/忽略”均不能绕过 work residency block。
 - 恢复 authority：Almagest 可以给出可引用的恢复候选，但不能自动选择或执行。principal 必须现场明确修复目标与动作，operator Agent 才能形成绑定 detection、固定输入、精确 action set 和 plan hash 的 recovery plan；任何写动作仍须满足 DEC-03D 的逐 plan 批准。
 - 解除条件：执行获批 recovery plan 后必须重新 inventory/verify；只有新证据证明违规 payload 已从非授权位置消失、且受影响输入已重新固定，才解除阻断并重新生成普通 plan。仅关闭告警、记录 acknowledgment、等待一段时间或修复部分副本都不算恢复完成。
 - `Must`：所有 content-bearing stage 的 residency 继承；受控物化点 pre-write deny；既有越界 read-only detection；受影响链路硬阻断；结构化告警；principal 现场决策；独立 recovery plan；修复后重新取证再解除。
-- `Later`：检测调度、跨机汇总频率、通知渠道和大规模历史扫描由 DEC-12/13 或外部 operator automation 决定；本轴只规定一旦检测到违规时必须怎样处置。
+- `Later`：本机检测覆盖面和大规模历史扫描由 DEC-12 或本机 operator automation 决定；本轴只规定在当前操作中一旦检测到违规时必须怎样处置。跨机汇总、中央报告和 Almagest 主动通知不进入 Later。
 - `Out`：先写后扫、自动删除/隔离/迁移/修复/adopt、静默清理 consumer cache/live、永久忽略、acknowledgment 解锁、用普通 approval 或 break-glass 放行，以及让 Almagest 承担通用 data loss prevention（DLP，数据防泄漏）或内容分类平台。
 - 接受的代价：已知越界会让受影响配置链持续不可变更，直到 principal 作出决定、Agent 完成修复并重新验证；即使恢复动作明显，也不能由 Almagest 自动代办。以此换取发现问题不会扩大权限或造成二次破坏。
-- 后果：04D 必须定义告警、plan、receipt 与跨机汇总可携带的最小脱敏元数据；DEC-07 必须提供逐 stage 的 provenance evidence；DEC-09 必须表达 block-only 与 recovery plan；DEC-10 必须保证 deny 发生在写入前且 apply 与获批 recovery plan 等价；DEC-12/13 决定何时检测和如何跨机汇总；DEC-16 记录 detection→principal decision→recovery apply→verify 的完整链。
+- 后果：04D 要求告警、plan、receipt 与 evidence 全部留在产生它们的 Mac；DEC-07 必须提供逐 stage 的本机 provenance evidence；DEC-09 必须表达 block-only 与 recovery plan；DEC-10 必须保证 deny 发生在写入前且 apply 与获批 recovery plan 等价；DEC-12 决定本机检测入口；DEC-13 不得增加跨机汇总；DEC-16 在本机记录 detection→principal decision→recovery apply→verify 的完整链。
 - 验收断言：Almagest 控制的任一 work 越界写入在落盘前被拒绝且目标零变化；任一既有越界都会阻断受影响的 resolve、普通 plan 与 apply，同时允许只读取证；没有 principal 明示决定与精确批准时零修复写入；普通 approval、exception 或 acknowledgment 不能解锁；只有获批恢复完成且重新验证通过后才能解除阻断。
+
+#### 04D 已拍板：A，work 内容和元数据零离机
+
+principal 明确纠正了“跨机报告”前提：Almagest 是被当前机器上的 operator Agent 在操作现场调用的本地工具，不是中央控制面。04D 因此选择 A；Mac-local work 的内容、存在性和所有派生元数据都只留在 Mac，不为 Windows 或中央端生成任何状态信封。
+
+| 选项 | 跨机可见范围 | 结论 |
+|---|---|---|
+| A：零离机 | work 内容和 work-derived metadata 均不离开 Mac | **已选择** |
+| B：最小状态信封 | 允许跨机发送状态、诊断码、时间和本机 evidence reference | 拒绝：仍然制造了不存在的跨机报告面，也泄露 work 的存在与活动状态 |
+| C：脱敏诊断 | 允许 asset 名、相对路径、digest、数量或差异摘要跨机 | 拒绝：脱敏不等于无信息，会暴露工作结构并增加分类错误面 |
+| D：加密完整证据 | 加密后把完整 evidence 发送到其它 host 或中央端 | 拒绝：加密 payload 仍已离开 Mac，直接违反 04A |
+
+```text
+Mac：principal ──> Mac Agent ──> Mac Almagest ──> 本机 plan / receipt / evidence
+Windows：principal ──> Windows Agent ──> Windows Almagest ──> 本机 plan / receipt / evidence
+                                      两条本地操作链之间没有 report / receipt / evidence 通道
+```
+
+- 决定（v0.1，2026-07-17，approver: principal）：work content 与 work-derived metadata 一律 Mac-only。禁止离机的范围包括 work 的存在/缺失、状态、asset/source/detection/evidence ID、名称、路径、digest、数量、时间、diff、provenance、plan、receipt、错误详情和任何可关联 reference；不因字段已脱敏、不可还原或加密而放宽。
+- 本地交互：Mac operator Agent 可以在当前操作中读取本机 Almagest 的完整结构化结果并向 principal 解释；Almagest 不持久化或推送跨机报告。Windows operator Agent 只检查本机 GitHub base target，不查询 Mac，也不知道 Mac 是否有 work source、是否合规或是否被阻断。
+- 未知停止条件：若一个待导出、写入 GitHub、复制到 Windows 或发送给中央端的 artifact 无法证明完全不含 work content/metadata，egress 必须 `block`。本机只读 inventory/explain 可以继续；unknown 不能靠字段删除、hash、加密或 operator acknowledgment 变成可外发。
+- 共享出口：确需跨机消费的内容必须由 principal 明确要求重新编写/迁移为 GitHub personal/shared authored asset，经内容审阅形成新 source revision，再走 DEC-03D 新 plan；不能把 Mac 证据包、receipt 或 work metadata 当迁移载体。
+- `Must`：work content/metadata 全量 Mac-only；每次操作只调用当前 host 的 Almagest；完整本机 evidence；未知 egress fail closed；Windows 零 work knowledge；共享必须经过 GitHub authored migration。
+- `Later`：若未来真的出现中央报告或跨机诊断需求，必须显式重开 04A/04D 与 DEC-13/16；当前不预留 status envelope、上传接口或远端 evidence reference。
+- `Out`：中央控制端、跨机 dashboard/report、receipt 上传、跨机对比、远程查询 Mac work 状态、推送通知、最小/脱敏/加密 work metadata egress，以及让 Almagest 远程操作另一台 host。
+- 接受的代价：principal 无法在 Windows 或一个中央视图看到 Mac work 是否合规；处理哪台机器就必须在那台机器的 Agent 会话中当场检查和决策。以此换取 Almagest 无需维护跨机通道、脱敏规则或中央数据面，且 work 的存在本身也不会泄漏。
+- 后果：DEC-07/09/10/12/16 的 work inventory、plan、apply、drift、receipt 与 audit 均只在 Mac 本机产生和消费；DEC-13 只能定义两台机器如何分别从共享 GitHub source 达到各自 target，不得设计中央协调、receipt 上传或跨机汇总；本地 evidence 的保留与清理由 DEC-16 决定。
+- 验收断言：Windows、GitHub 和任何中央端均观察不到 work 的内容、存在性、状态或派生元数据；Mac 与 Windows 的操作分别由同机 Agent 调用同机 Almagest 完成；无法证明 work-free 的 egress 零写入；若 principal 需要共享内容，只能生成新的 GitHub authored asset 和新 plan，不能导出原 work evidence。
 
 ### DEC-05 Overlay 与解析
 
@@ -620,16 +650,16 @@ Principal（目标、歧义裁决、逐变更批准）
   - 12D：Later 如何把 consumer runtime 漂移与配置漂移区分并关联，不得反向改变 v1 成功口径。
 - 初步验收：结构化报告指出差异层、责任 source、证据、风险和下一动作；operator Agent 可直接据此解释和重试；破坏性修复不会静默发生。
 
-### DEC-13 跨机配置一致性
+### DEC-13 跨机配置一致性（本地独立执行）
 
 - 状态：待给方案
 - 依赖：DEC-02—DEC-12。
 - 决策轴：
-  - 13A：每台机器独立 pull+plan+apply，还是存在只协调配置/receipt 的控制端；边界和信任如何划分。任何选项都不管理远端 Agent 进程。
+  - 13A：每台机器如何由本机 operator Agent 独立完成 source sync、plan、apply 与 verify；04D 已排除中央控制端、远程执行和跨机报告。
   - 13B：配置/引用、policy、adapter 与 source revision 如何分发和锁定。
-  - 13C：离线、配置/adapter 版本错位、apply 失败重试、receipt 上传和跨机对比如何处理。
-  - 13D：汇总哪些元数据；如何避免把 private/work 内容带到未授权 host 或中央端。
-- 初步验收：不暴露 private/work 内容也能判断 Mac 与 Windows 是否处于各自正确 target 状态。
+  - 13C：每台机器本地如何处理离线、配置/adapter 版本错位和 apply 失败重试；receipt 不上传，也不做跨机对比。
+  - 13D：如何让每台机器只依赖本机 source/inventory/evidence 判断自己的 target 状态；Mac work 事实对 Windows 保持完全不可见。
+- 初步验收：Mac 与 Windows 各自通过本机 Agent 判断并达到正确 target 状态，不需要中央端、receipt 上传或另一台机器的状态。
 
 ### DEC-14 配置资产生命周期
 
@@ -661,7 +691,7 @@ Principal（目标、歧义裁决、逐变更批准）
   - 16A：audit/receipt 如何分别保存 principal approver、operator Agent、time、source/digest、policy、plan、target、action、result 和 evidence。
   - 16B：记录存在哪里、保留多久、如何脱敏和防篡改。
   - 16C：v1 的机器可读 explain 如何通过稳定 ID/诊断码回答 identity、provenance、shadow、block 和 config/binding drift，并以紧凑摘要 + 按需详情控制 Agent 上下文成本；Later 如何追加 runtime failure/evidence。
-  - 16D：跨机聚合、离线 receipt、schema 升级和审计记录自身生命周期如何处理。
+  - 16D：每台机器本地如何处理离线 receipt、schema 升级和审计记录自身生命周期；04D 已排除跨机聚合。
 - 初步验收：operator Agent 能通过稳定 schema 回答“哪位 principal 在何时批准、哪个 Agent 基于哪个固定输入/plan，把什么投影到哪个 target，结果为何生效或失败”，无需抓取人类界面文本。
 
 ## 需求追踪矩阵
