@@ -1,14 +1,14 @@
 schema_version: 0.1
 pm_id: ERI-937
 slug: agent-config-control-plane
-title: Agent 配置控制面能力契约与逐项拍板
+title: Almagest Agent 配置控制面产品契约
 owner: principal
 source:
   type: conversation
   url: docket:ERI-937
   captured_at: 2026-07-16
 iteration:
-  name: capability-contract
+  name: product-contract
   deadline: ""
 links:
   pm_issue: docket:ERI-937
@@ -21,4 +21,4 @@ repos:
   - almagest
 risk:
   level: medium
-  notes: 影响跨主机、跨 Agent 和 personal/work 边界；本阶段只做需求与决策，不改实现或 live 配置。
+  notes: 影响跨主机、跨 Agent 和 personal/work 驻留边界；本阶段只固化产品契约，不改实现或 live 配置。
