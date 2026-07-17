@@ -20,7 +20,7 @@
 | Codex 共享入口 | `/Users/a123/.codex/AGENTS.md` 链接到 `/Users/a123/workspace/eridanus-ops/chezmoi/AGENTS.md`；另有 `/Users/a123/.agents/skills` 和 `/Users/a123/.agents/.skill-lock.json` | live target、managed source、共享 root 与 lock 必须分别建模 |
 | QoderCLI | `/opt/homebrew/bin/qodercli`，版本 `1.0.47`；存在 `/Users/a123/.qoder/settings.json`、`argv.json`、`AGENTS.md`、`agents/`、`hooks/`、`plugins/`、`extensions/`、`external-commands/`、statusline 和 compound 配置 | 旧清单漏了 commands、agents、extensions、statusline、启动参数与 permission/trust 等配置域 |
 | `qoder` 命令 | `/usr/local/bin/qoder` 链接到 `/Applications/Qoder.app/Contents/Resources/app/bin/code`，与 `qodercli` 不是同一入口 | binary/alias/wrapper 不能整体视为 `Out`；至少要观测入口解析，防止对错误 consumer/root 验证 |
-| 启动绑定 | 本机环境中存在 `CODEX_HOME`、`ORCA_CODEX_HOME` 等变量名；未读取或记录值 | 影响配置 root/profile/lane 的环境变量属于 target 绑定，不属于“完整主机环境”噪声 |
+| 启动绑定 | 本机环境中存在 `CODEX_HOME`、`ORCA_CODEX_HOME` 等变量名；未读取或记录值 | 影响配置 root/profile/workspace/settings source 的环境变量属于 target 绑定，不属于“完整主机环境”噪声 |
 
 已发现但不自动视为配置的目录包括 cache、logs、history、sessions、telemetry、代码索引、模型缓存和生成 memories。它们需要在 inventory 中标记为 generated/runtime state，避免被 adopt、复制或删除。
 
@@ -73,6 +73,14 @@
 - 同一 logical/revision 的不同 projection 是 copy/mirror；consumer render 通过明确的输入 revision 与 adapter/capability 元数据标识；无法由 authority/precedence 唯一裁决的同 logical ID 候选才是 conflict。
 - A 因不可复现而拒绝；C 因重复 Git 并引入版本控制责任而拒绝；D 因扩成全事件 provenance 平台而拒绝。未来只有出现脱离 Git 的多方编辑/合并需求时才重开 C。
 
+## DEC-02A/02B 拍板结果
+
+- 2026-07-16，principal 确认 B：target 是稳定消费端，identity 为 `host_id + consumer_instance_id`；work 是 source/asset placement 与 residency policy，不是另一个 target context。
+- GitHub personal/shared base 由 Mac 与 Windows 共同消费；Mac-local work overlay 不进入 GitHub，且只能留在 Mac 工作机。Mac effective config 为 base + work overlay，Windows 为 base-only，再分别做 consumer render。
+- Mac/Windows 是两个已存在的 host，参与 target identity；OS、consumer version、binary/root、profile 与 workspace 是被动观测属性或 selector。当前四类 target 为 Mac Codex/Qoder 与 Windows Codex/Claude，不建立 Mac personal/work 双 target；具体 ID 值留待 inventory 声明。
+- work-local 使用独立 source root；允许 local Git 无 remote，但不允许用同一 GitHub checkout 内的 `.gitignore` 充当 residency 安全边界。Almagest 约束自身管理的 source/cache/resolve/render/plan/receipt/live surfaces，不承诺管理通用 OS backup/sync。
+- A 因无显式防泄漏 policy 而拒绝；C 因制造虚假双 context 而拒绝；D 因 target 爆炸与 runtime 扩权而拒绝。02C capability 的 unsupported/block/degrade 尚未拍板。
+
 ## 验证记录
 
 | 检查 | 预期 | 实际结果 |
@@ -93,6 +101,8 @@
 | 01B 拍板仓级回归 | 固化 C 且不把下一轴未决方案写入正式文档后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 01C 决策记录 | B 的 revision、Git 分工、派生/conflict 规则、Must/Later/Out、后果和验收均可审计 | 通过：01C 标记 `已拍板`；Almagest revision evidence 与 Git authored history 分开；C/D 的扩权责任明确拒绝 |
 | 01C 拍板仓级回归 | 固化 Git-backed revision 模型后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
+| 02A/02B 决策记录 | endpoint identity、source topology、work residency、边界与下游影响可审计，02C 不被偷跑 | 通过：02A/02B 标记 `已拍板`；四个稳定 target、GitHub base + Mac-local overlay、全链路 residency 与 OS backup Out 均明确；02C 保持待定 |
+| 02A/02B 拍板仓级回归 | 固化 target 与 source residency 模型后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 
 ## 验证边界
 
@@ -102,6 +112,6 @@
 
 ## 尚未产生的证据
 
-- DEC-02—DEC-16 的拍板结果：后续逐项写入 `design.md`。
+- DEC-02C 与 DEC-03—DEC-16 的拍板结果：后续逐项写入 `design.md`。
 - capability spec / ADR：所有相关决定稳定后再蒸馏。
 - 实现与 runtime 验证：不属于本设计阶段。

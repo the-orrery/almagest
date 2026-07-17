@@ -14,17 +14,17 @@
 
 ## 目标与成功口径
 
-Agent 配置控制面 v1 应能对任意**已声明 target** 回答以下问题；target 的候选维度包括 host、OS、consumer、consumer version、profile、workspace 和 lane，最终键由 DEC-02 决定：
+Agent 配置控制面 v1 应能对任意**已声明 target** 回答以下问题。DEC-02A/02B 已确定 target identity 为 `host_id + consumer_instance_id`；OS、consumer version、binary/root、profile 和 workspace 是观测属性或 selector，不进入 target identity：
 
 1. 目标应当拥有哪些资产，来自哪个权威 source 和 overlay；
 2. apply 前会 add/remove/change/shadow/block 什么，为什么；
-3. apply 后 live 配置与 active root/profile/lane 等绑定事实是否符合目标；
+3. apply 后 live 配置与 active root/profile/workspace 等绑定事实是否符合目标；
 4. 发生配置漂移时，差异来自 source、resolve、render、projection、live 还是绑定输入；
-5. personal/work 或 public/private 边界是否被违反。
+5. personal/shared 与 work-local 的驻留/投影边界，或 public/private 边界是否被违反。
 
 consumer 是否已 parsed/registered、discoverable/enabled、callable 或 observed-used，以及 runtime drift 如何归因，是控制面完整能力地图中的 `Later` 分支，不是 v1 配置一致性的成功门禁。后续可以拍板其证据合同，但不得反向阻塞 v1 的 plan/apply/config-drift 闭环。
 
-当前阶段采用“配置一致优先”：v1 先保证每个 target 的 declared → resolved → rendered → live 配置与其目标状态一致，并能在 apply 前报告差异、apply 后检查漂移。“一致”不是要求 Mac/Windows 或 personal/work 配置字节相同，而是各自 live 状态符合各自 overlay 后的目标。
+当前阶段采用“配置一致优先”：v1 先保证每个 target 的 declared → resolved → rendered → live 配置与其目标状态一致，并能在 apply 前报告差异、apply 后检查漂移。“一致”不是要求 Mac/Windows 配置字节相同，而是 Mac 各 consumer 符合 `GitHub personal/shared base + Mac-local work overlay`，Windows 各 consumer 符合 GitHub base 的目标状态。
 
 这里必须区分三种对象，不能再用“配置/运行时”二分法一刀切：
 
@@ -32,31 +32,31 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 2. **绑定与依赖观测**：不由 v1 安装或维护，但会决定哪个配置被消费、或该配置能否成立的事实；v1 必须盘点并参与 plan/verify，不能当成无关主机环境。
 3. **运行态与生成状态**：进程、执行结果、缓存、会话等；不属于 v1 配置一致性承诺，后续另行决定是否治理。
 
-因此，“不负责安装/运行”不等于“不看”。例如 v1 不升级 Codex binary，但必须知道 consumer 产品、版本、路径和配置 schema；不管理整个 shell，但若 wrapper、alias、启动参数或环境变量选择了 `CODEX_HOME`、profile、lane 或 settings source，就必须纳入受管配置或绑定观测。
+因此，“不负责安装/运行”不等于“不看”。例如 v1 不升级 Codex binary，但必须知道 consumer 产品、版本、路径和配置 schema；不管理整个 shell，但若 wrapper、alias、启动参数或环境变量选择了 `CODEX_HOME`、profile、workspace 或 settings source，就必须纳入受管配置或绑定观测。
 
 ## 已知目标拓扑
 
-| Host | OS | Consumer | 已知 lane | 仍需取证 |
+| Host | OS | Consumer | 允许的 source | 仍需取证 |
 |---|---|---|---|---|
-| Mac | macOS | Codex | personal + work | v1：产品版本、roots、precedence、profile、两条 lane 是否共享 global root；Later：runtime probe |
-| Mac | macOS | QoderCLI | personal + work | v1：产品版本、多 roots、precedence、profile、frontmatter；Later：runtime probe |
-| Windows | Windows | Codex | personal | v1：产品版本、roots、precedence、profile；Later：runtime probe |
-| Windows | Windows | Claude，具体产品待确认 | personal | v1：Claude Code/Desktop/其它、产品版本、roots、precedence、profile；Later：runtime probe |
+| Mac 工作机 | macOS | Codex | GitHub personal/shared base + Mac-local work overlay | v1：产品版本、roots、precedence、profile；Later：runtime probe |
+| Mac 工作机 | macOS | QoderCLI | GitHub personal/shared base + Mac-local work overlay | v1：产品版本、多 roots、precedence、profile、frontmatter；Later：runtime probe |
+| Windows | Windows | Codex | GitHub personal/shared base | v1：产品版本、roots、precedence、profile；Later：runtime probe |
+| Windows | Windows | Claude，具体产品待确认 | GitHub personal/shared base | v1：Claude Code/Desktop/其它、产品版本、roots、precedence、profile；Later：runtime probe |
 
-这张表只记录已知消费范围。“文件写到了某个目录”不等于 consumer 已加载，也不证明 lane 隔离成立。
+这张表只记录已知消费范围。Mac 上没有并列的 personal/work consumer context；每个 consumer 只有一个 target，其 resolved state 是允许进入该 host 的 source overlay。“文件写到了某个目录”仍不等于 consumer 已加载。
 
 ## 关键术语
 
 | 术语 | 工作定义 |
 |---|---|
 | asset | 被治理的 skill、MCP、instructions、settings、hook、plugin 等能力单元；确切范围由 DEC-01 决定 |
-| consumer | 消费配置的具体 Agent 产品及版本，例如 Codex、QoderCLI、Claude Code |
+| consumer | 消费配置的稳定 Agent 实例，例如 Codex、QoderCLI、Claude；具体产品版本是该实例的观测属性 |
 | source | 对声明内容拥有权威性的来源；cache、rendered artifact 和 live target 默认不是 source |
 | root | consumer 会搜索或读取的物理目录/配置入口，一个 consumer 可以有多个 root |
-| target | 一次策略解析、渲染和投影的目标上下文；最终 identity 由 DEC-02 决定 |
-| profile | 同一 consumer 的一组显式运行配置；与 personal/work lane 是独立维度 |
-| lane | personal/work 这类并列的消费与策略域，不表示高低层级 |
-| layer | 可参与组合的声明片段，例如 public base、private、lane、host、consumer、local overlay |
+| target | 稳定消费端，identity 为 `host_id + consumer_instance_id`；OS、版本、路径和 profile 等是属性或 selector |
+| profile | 同一 consumer 的一组显式运行配置；当前不是独立 target identity |
+| placement/residency policy | 声明 source/asset 允许出现、缓存、渲染和投影到哪些 host；work-local 内容只允许留在 Mac 工作机 |
+| layer | 可参与组合的声明片段，例如 GitHub personal/shared base、Mac-local work、host、consumer、local overlay |
 | overlay | 多个 layer 按确定规则合成 resolved desired state 的机制；不同 asset 类型可以有不同 merge algebra |
 | resolved | source 与 policy 解析后的目标状态，尚未适配 consumer 格式 |
 | rendered | 为具体 consumer/target 生成的派生 artifact，必须可追溯到 source 和 renderer 版本 |
@@ -89,7 +89,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | DEC-01 | 资产范围与身份 | v1 管什么；每类资产如何获得稳定身份 | 资产类型清单与 identity contract |
 | DEC-02 | 目标拓扑与隔离能力 | target 由哪些维度组成；物理环境能否承载所需隔离 | target key 与 capability/unsupported 规则 |
 | DEC-03 | 权威来源与信任 | 谁拥有真相；外部来源和可执行内容如何受信 | source authority 与 supply-chain policy |
-| DEC-04 | Lane 与投影策略 | personal/work 如何继承、允许、阻断和例外 | projection policy 与防误投影约束 |
+| DEC-04 | Source 驻留与投影策略 | personal/shared 与 work-local 如何组合、允许、阻断和例外 | placement/projection policy 与防泄漏约束 |
 | DEC-05 | Overlay 与解析 | 各 layer 及各类 asset 如何合成、删除和冲突 | 确定性 resolved desired state |
 | DEC-06 | Secret 与本地参数 | secret、路径、账号和 host 差异放哪里 | 不泄漏且可移植的 local-value contract |
 | DEC-07 | Inventory | source、resolved、rendered、live、effective 各盘点什么 | 有证据边界的全状态清单 |
@@ -111,7 +111,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 |---|---|---|
 | DEC-02 | Must | target 必须覆盖 active config 绑定；不管理 consumer binary 生命周期 |
 | DEC-03 | Must | 管 source authority、revision/digest 与可执行配置信任；不因此承担包安装或服务运行 |
-| DEC-04 | Must | 管 personal/work 投影与防误投影；不把共享 root 伪装成物理隔离 |
+| DEC-04 | Must | 管 personal/shared 与 work-local 的驻留/投影；work 内容不得进入 Windows 或非授权中间产物 |
 | DEC-05 | Must | 管 13 个配置域的 deterministic overlay；不 merge cache/session/generated state |
 | DEC-06 | Must | 管 secret schema/reference/local binding 与脱敏；secret value 仍由本机 credential provider 持有 |
 | DEC-07 | Must + Later | v1 盘点 source/resolved/rendered/live 和 6 类绑定事实；effective 高阶证据属于 Later |
@@ -149,7 +149,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | 旧名词 | 原意 | v0.3 修正后的归类 |
 |---|---|---|
 | Agent binary | `codex`、`qodercli`、`claude` 可执行文件本身、安装渠道和升级 | 安装/升级 `Out`；产品、版本、路径、支持的 schema/capability 是必须观测的 target 元数据 |
-| wrapper | 在真正 binary 前设置参数、环境变量、profile、代理或工作目录的脚本/启动器 | 若决定配置 root、profile、lane 或 settings source，则 wrapper 声明属于受管配置；其解析结果必须观测。与 Agent 无关的通用 wrapper 才是 `Out` |
+| wrapper | 在真正 binary 前设置参数、环境变量、profile、代理或工作目录的脚本/启动器 | 若决定配置 root、profile、workspace 或 settings source，则 wrapper 声明属于受管配置；其解析结果必须观测。与 Agent 无关的通用 wrapper 才是 `Out` |
 | shell alias/function | 把短命令映射到 binary、参数或环境的 shell 绑定 | 同 wrapper；不能因位于 shell dotfile 就整体排除。v1 不接管整份 shell 配置，只治理/观测与 target 绑定有关的片段 |
 | 进程 | Agent、MCP、daemon、hook 子进程的启动、停止、守护和恢复 | 进程生命周期 `Out`；若进程实际启动参数可安全取得，可作为 Later 的 effective 证据 |
 | 完整主机环境 | OS、包管理器、全部 PATH、shell、系统服务、代理、运行时与其它 dotfiles | 整体 `Out`；但 OS、home/config root、路径、所需 executable 是否存在等配置相关事实属于绑定/依赖观测 |
@@ -167,13 +167,13 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | MCP、apps 与 connectors | server/app 声明、transport、command/url、tool allow/deny、scope、OAuth/credential reference、启用状态 | 受管配置；secret value 本机化；服务进程、登录会话和连通健康属于 Later |
 | 模型与推理默认值 | model/provider/base URL reference、reasoning、context、输出限制、feature flags、实验能力 | 受管配置；模型缓存与下载状态 `Out` |
 | 权限与安全策略 | approval、sandbox、filesystem/network permission、tool allow/deny、trust、managed policy/requirements | 受管配置；不得被 local overlay 绕过 |
-| Profiles、scope 与层级 | user/project/local/managed scope、profile、lane、workspace/project layer、settings source、precedence、overlay 与 CLI/config override policy | 受管配置；实际启动选择结果必须观测 |
+| Profiles、scope 与层级 | user/project/local/managed scope、profile、workspace/project layer、source class、settings source、precedence、overlay 与 CLI/config override policy | 受管配置；实际启动选择结果必须观测 |
 | Hooks | 事件、matcher、顺序、类型、timeout、command/prompt/agent/http/MCP target，以及受管 hook script 内容 | 受管配置；是否执行、退出码和副作用属于 Later |
 | Plugins、extensions 与 marketplace | manifest、source/ref/version constraint、marketplace/registry、enabled state、override、plugin 所带 skills/agents/hooks/MCP/apps/LSP/bin 声明 | 受管配置；实际安装包、cache、依赖安装和运行健康只观测或 Later |
 | 自定义 agents/subagents | role、description、instructions、model、tools/MCP、skills、permissions、sandbox、并发/深度限制 | 受管配置 |
 | Commands、prompts 与输出交互 | custom commands/prompts、output styles、status line、notification command；已废弃 surface 仍需 inventory/migrate | 受管配置；废弃项的迁移时机由 DEC-14 决定，不得因废弃而漏盘点 |
 | Agent 客户端偏好 | CLI/TUI/IDE language、theme、layout、更新频道、遥测、索引等 user-authored settings | 受管配置；只管理用户声明值，不同步 telemetry event、index 或其它生成数据 |
-| Secret 与本地参数 | token、OAuth 状态、账号、credential store、绝对路径、machine ID、proxy/local endpoint | 只受管 schema、reference、required/optional 和本地绑定；不跨 lane/host 复制 secret value |
+| Secret 与本地参数 | token、OAuth 状态、账号、credential store、绝对路径、machine ID、proxy/local endpoint | 只受管 schema、reference、required/optional 和本地绑定；不跨 source residency/host 边界复制 secret value |
 | 控制面元数据 | asset identity、source authority、digest/revision、adapter/schema version、ownership、lock、policy 与 receipt | Almagest 自身必须受管，否则无法解释或重现配置 |
 
 #### 必须观测但不由 v1 安装维护
@@ -181,7 +181,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | 观测对象 | 为什么不能遗漏 |
 |---|---|
 | consumer 产品、版本、binary path、配置 schema/capability | 同一文件在不同产品/版本中可能含义不同，甚至不被识别 |
-| 实际 config root、home、active profile/lane/workspace、project trust | 决定加载哪一层配置 |
+| 实际 config root、home、active profile/workspace、project trust | 决定加载哪一层配置 |
 | wrapper/alias/function/启动参数/相关环境变量的解析结果 | 可能把同一命令路由到另一个 binary、root 或 profile |
 | plugin/extension 实际安装版本与 package digest | enabled 配置只有在对应包存在且版本兼容时才有意义；v1 只报告，不负责安装 |
 | hook/MCP/skill script 所需 executable、文件和本地 endpoint 是否存在 | 区分“配置一致”与“依赖缺失”；v1 不自动修复主机依赖 |
@@ -259,13 +259,30 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 
 ### DEC-02 目标拓扑与隔离能力
 
-- 状态：待给方案
+- 状态：02A、02B 已拍板；02C 待给方案
 - 依赖：DEC-01。
 - 决策轴：
-  - 02A：target key 包含哪些维度：host、OS、consumer/version、profile、workspace、lane。
-  - 02B：profile、workspace 与 lane 哪些是一等隔离边界，哪些只是 selector。
+  - 02A：target key 包含哪些维度：host、consumer，以及哪些事实只作为属性。
+  - 02B：work 是 target context，还是 source/asset placement 与 residency policy。
   - 02C：如何声明 target/consumer 的实际能力；所需隔离无法承载时是 `unsupported`、`block` 还是允许显式降级。
-- 初步验收：四个已知消费者都能映射到无歧义 target；共享 global root 无法满足隔离时不会伪称成功。
+
+#### 02A/02B 已拍板：稳定消费端 target + work-local 驻留策略
+
+| 候选 | Target / work 模型 | 结果 |
+|---|---|---|
+| A：仅靠 source 不出现 | target 使用 host/consumer，但只靠 Windows 不 checkout work source 防泄漏 | 拒绝：迁移、打包或同步配置错误时没有显式 policy 阻断 |
+| B：稳定 endpoint + placement/residency policy | target 为 `host_id + consumer_instance_id`；work 是 source/asset 的驻留与投影限制 | **已选择** |
+| C：Mac personal/work 双 context | 为同一 Mac consumer 创建 personal、work 两个 target | 拒绝：真实消费是单 target 上的 base + work overlay，会制造虚假隔离 |
+| D：通用动态 context | profile、workspace、env、CLI invocation 都参与 target identity | 拒绝：当前无此需求，target 爆炸并越过稳定配置边界 |
+
+- 决定（v0.1，2026-07-16，approver: principal）：02A/02B 选择 **B——稳定消费端 target + work-local 驻留策略**。target identity 仅由 `host_id + consumer_instance_id` 构成；当前有 Mac × Codex、Mac × Qoder、Windows × Codex、Windows × Claude 四类 target，实际 `host_id` 与 `consumer_instance_id` 值留待受管 inventory 声明。OS、consumer version、binary path、config root、profile 和 workspace 是观测属性或 selector，不进入 target ID。
+- source 拓扑：GitHub 上的 personal/shared base 由 Mac 与 Windows 共同消费；Mac 另有一份不进入 GitHub 的 work-local overlay，只能被 Mac 工作机上的 Codex/Qoder 消费。Mac effective config 是 `GitHub base + work-local overlay + consumer render`，Windows effective config 是 `GitHub base + consumer render`。
+- residency 边界：work-local 应使用独立 source root，不以同一 GitHub checkout 内的 `.gitignore` 充当安全边界；它可以使用没有 GitHub remote 的 local Git，以复用 DEC-01C 的 Git-backed history。Almagest 对其自身管理的 discovery、cache、resolve、render、plan、receipt 和 live projection 全链路执行“不离开授权 Mac”的约束；通用 OS backup/cloud sync 不在本控制面承诺内，需由 host policy 保证。
+- `Must`：稳定 host/consumer ID；target 属性与 ID 分离；personal/shared 与 work-local source eligibility 可审计；任何 Windows target 的 source、cache、resolved、rendered、plan/receipt 和 live 内容都不包含 work-local payload。
+- `Later`：对单次 CLI/env invocation 的逐次 fingerprint 与 runtime 使用证明；当前只观测会改变默认 active config 的稳定绑定。
+- `Out`：为当前不存在的 personal/work 双 context、任意 cwd 或单次 invocation 建永久 target；仅靠 `.gitignore` 宣称 work residency 已受保护；把 OS backup/sync 生命周期纳入 Almagest。
+- 后果：DEC-03 定义 GitHub personal/shared 与 Mac-local work 的 authority/trust；DEC-04 定义 placement/egress deny、Mac union 和例外；DEC-05 固定 overlay；DEC-06/13 决定哪些脱敏元数据允许离开 Mac。02C 的 capability/unsupported 行为仍未拍板，不能从本决定推断。
+- 验收断言：四个 consumer 均映射到唯一稳定 target；升级 consumer、改变 binary path/root 不产生新 target；Mac 两个 target 解析 base + work overlay，Windows 两个 target 只解析 base；任一 work payload 出现在 Windows 或未授权中间产物时必须被检测为 policy violation，而不是 drift success。
 
 ### DEC-03 权威来源与信任
 
@@ -278,26 +295,26 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
   - 03D：skill、hook、MCP 等可执行或可调用内容如何分级风险并获批。
 - 初步验收：每个 resolved asset 能追溯到唯一 authority 和不可歧义的输入 revision/digest；不可信输入 fail closed。
 
-### DEC-04 Lane 与投影策略
+### DEC-04 Source 驻留与投影策略
 
 - 状态：待给方案
 - 依赖：DEC-02、DEC-03。
 - 决策轴：
-  - 04A：personal/work 是标签、继承域、并集还是强策略隔离域。
-  - 04B：Mac 同时消费两条 lane 时采用 union、独立 profile/root，还是按 consumer 能力选择。
-  - 04C：默认 allow/deny、跨 lane 继承、例外授权和 work-only 防误投影如何定义。
-  - 04D：物理 root/profile 不支持隔离时的停止条件与迁移要求。
-- 初步验收：work-only asset 投影到 Windows/personal 必须 `block`；任何例外有显式授权和 receipt；共享 root 不能制造虚假隔离。
+  - 04A：GitHub personal/shared 与 Mac-local work 的 source/asset classification、allowed hosts 和 egress deny 如何定义。
+  - 04B：Mac 的 base + work union、Windows 的 base-only 如何形成确定投影。
+  - 04C：默认 allow/deny、例外授权以及 source/cache/render/receipt/live 全链路防泄漏如何定义。
+  - 04D：哪些脱敏元数据允许跨机；无法证明 residency 时的停止条件与迁移要求。
+- 初步验收：work-only payload 进入 Windows 或非授权中间产物必须 `block`；任何例外有显式授权和 receipt；不存在虚构的 Mac personal/work 双 target。
 
 ### DEC-05 Overlay 与解析
 
 - 状态：待给方案
 - 依赖：DEC-01—DEC-04。
 - 决策轴：
-  - 05A：public base、private、lane、host、consumer、local layer 的顺序和适用范围。
+  - 05A：public/private base、work-local、host、consumer、local layer 的顺序和适用范围。
   - 05B：每种纳入 asset 的 merge algebra：skill 的集合/目录、MCP/settings 的键或字段、instructions 的 import/拼接、hooks 的有序列表等。
   - 05C：add、override、remove/mask、duplicate 和 conflict 的语义；哪些冲突按优先级，哪些必须阻断。
-  - 05D：如何表达 `private-shared + work-only + host/consumer/local`；local overlay 不得绕过 lane policy 或 source trust。
+  - 05D：如何表达 `personal/shared base + work-local + host/consumer/local`；local overlay 不得绕过 residency policy 或 source trust。
 - 初步验收：相同输入生成相同 resolved state；每个字段/资产可解释 provenance；所有纳入类型均有 merge/remove/conflict 规则。
 
 ### DEC-06 Secret 与本地参数
@@ -340,7 +357,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - 决策轴：
   - 09A：plan 是否完整覆盖 add/remove/change/shadow/block/no-op 及原因链。
   - 09B：是否固定所有 source revision/digest、policy、renderer/adapter 版本和 target inventory snapshot。
-  - 09C：如何按 host/consumer/lane 汇总“多、少、变、shadow、block”数量和风险。
+  - 09C：如何按 host/consumer/source class 汇总“多、少、变、shadow、block”数量和风险。
   - 09D：plan identity/hash、审批粒度、有效期和输入变化后的失效规则。
 - 初步验收：apply 前可回答每个消费者变化及原因；未进入获批 plan 或输入已变化的动作不能执行。
 
@@ -385,7 +402,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
   - 13A：每台机器独立 pull+plan+apply，还是存在只协调配置/receipt 的控制端；边界和信任如何划分。任何选项都不管理远端 Agent 进程。
   - 13B：配置/引用、policy、adapter 与 source revision 如何分发和锁定。
   - 13C：离线、配置/adapter 版本错位、apply 失败重试、receipt 上传和跨机对比如何处理。
-  - 13D：汇总哪些元数据；如何避免把 private/work 内容带到错误 lane 或中央端。
+  - 13D：汇总哪些元数据；如何避免把 private/work 内容带到未授权 host 或中央端。
 - 初步验收：不暴露 private/work 内容也能判断 Mac 与 Windows 是否处于各自正确 target 状态。
 
 ### DEC-14 配置资产生命周期
@@ -426,10 +443,10 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | 用户成功口径 | 主责任卡 | 需覆盖对象 | 最终证据 |
 |---|---|---|---|
 | target 应有资产及其 authority/overlay | DEC-01—DEC-06 | 13 个受管配置域、6 类绑定/依赖观测事实；四个已知 consumer | capability spec assertion + fixture |
-| apply 前完整说明变化与原因 | DEC-07—DEC-10 | 每个 host/consumer/lane | plan contract + golden plan |
+| apply 前完整说明变化与原因 | DEC-07—DEC-10 | 每个 host/consumer/source class | plan contract + golden plan |
 | v1 apply 后证明 live 配置与 active binding 正确 | DEC-07—DEC-10、DEC-12 | Mac Codex/Qoder；Windows Codex/Claude | config/binding inventory + drift fixture |
 | Later 证明 consumer 实际消费并定位 runtime drift | DEC-11、DEC-12 | 启用 runtime evidence 的 consumer/asset | 分级 runtime probe + failure fixture |
-| 防止 personal/work、public/private 越界 | DEC-02—DEC-06、DEC-09—DEC-13 | 正向与负向投影场景 | policy denial + receipt |
+| 防止 work-local 驻留/投影、public/private 越界 | DEC-02—DEC-06、DEC-09—DEC-13 | 正向与负向投影场景 | policy denial + receipt |
 
 DEC-01A—01C 已补齐资产范围、identity、version/derivation/conflict 关系。DEC-02 与 DEC-11 拍板后必须把四个 consumer 的确切产品/版本/target/probe 填入矩阵。上游卡重开时，矩阵用于列出受影响卡和证据。
 
@@ -437,13 +454,13 @@ DEC-01A—01C 已补齐资产范围、identity、version/derivation/conflict 关
 
 | ID | 类型 | 状态 | 影响 | 问题 / 假设 | Owner | 缓解或退出条件 | 处理点 |
 |---|---|---|---|---|---|---|---|
-| A-01 | Assumption | open | high | Mac personal/work 可能在同一 Codex/Qoder global root 中形成 union | principal | DEC-02/04 明示隔离语义；实际 root 不支持时标记 unsupported/block | DEC-02、DEC-04 |
-| A-02 | Assumption | open | high | private shared layer 可能同时进入 personal/work，也可能必须拆为 private-personal/private-work | principal | 明示 ownership、继承和禁止边 | DEC-03—DEC-05 |
-| R-01 | Risk | open | critical | 共享 root 被误当强隔离，可能把 work-only 资产泄漏到 personal/Windows | Codex | 负例 fixture；能力不足时 fail closed；不得仅靠标签宣称隔离 | DEC-02、DEC-04、DEC-09 |
+| A-01 | Assumption | resolved | high | Mac 是否需要 personal/work 两个 consumer context | principal | 2026-07-16 确认不需要；每个 Mac consumer 一个 target，effective config 为 GitHub base + work-local overlay | DEC-02、DEC-04 |
+| A-02 | Assumption | resolved | high | shared 与 work 配置是否为两份完整配置或 overlay | principal | 2026-07-16 确认 GitHub personal/shared base 两机消费，Mac-local work 只作增量 overlay | DEC-02—DEC-05 |
+| R-01 | Risk | open | critical | work-local payload 可能经 GitHub、Windows cache/render、plan/receipt 或 live projection 泄漏 | Codex | 独立 source root + 全链路 negative fixture；Almagest 管理面内 fail closed，不以 `.gitignore` 作为安全边界 | DEC-02、DEC-04、DEC-06、DEC-09、DEC-13 |
 | R-02 | Risk | open | medium | Later：vendor 无 runtime probe，文件正确却无法证明 consumer 生效 | Codex | 使用 evidence ladder；最高只报 inferred/unknown；不阻塞 v1 配置闭环 | DEC-11 |
 | I-01 | Issue | open | high | QoderCLI 的真实 roots、precedence、frontmatter、profile 未完整取证；runtime inventory 属 Later | Codex | v1 固定产品版本并取得 roots/precedence 实机证据；Later 再补 probe | DEC-08、DEC-11 |
 | I-02 | Issue | open | high | Mac/Windows Codex 的真实 roots、precedence、profile 未完整取证；runtime probe 属 Later | Codex | v1 分 OS/版本取得配置证据；Later 再补 probe | DEC-02、DEC-08、DEC-11 |
-| I-03 | Issue | open | high | Windows “Claude” 的具体产品、版本、roots、profile 未确认；runtime probe 属 Later | principal + Codex | principal 确认产品；Codex 先完成 v1 配置取证 | DEC-02 前 |
+| I-03 | Issue | open | high | Windows “Claude” 的具体产品、版本、roots、profile 未确认；runtime probe 属 Later | principal + Codex | principal 确认产品；Codex 在 DEC-08 前完成 v1 配置取证 | DEC-08、DEC-11 |
 | D-01 | Dependency | open | medium | consumer roots/格式及 Later runtime 行为依赖外部产品版本 | Codex | 分开建立 config capability matrix 与 Later runtime fixture；指定复核触发条件 | DEC-08、DEC-11、DEC-15 |
 | S-01 | Scope | resolved | high | v1 是否超出 skill，纳入 MCP、instructions、settings 等 | principal | 2026-07-16 DEC-01A v0.3 选择 B：13 个 user-authored 配置域纳管，6 类绑定/依赖事实观测；runtime/host 生命周期不接管 | DEC-01 |
 
