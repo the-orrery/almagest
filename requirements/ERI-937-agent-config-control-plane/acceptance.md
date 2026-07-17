@@ -9,7 +9,7 @@ Scenario: principal 通过 operator Agent 驱动 Almagest
   Then Almagest 通过稳定 schema、诊断码、退出码和引用 ID 返回机器可消费结果
   And operator Agent 可按引用 ID 获取完整 diff、provenance 和 explain
   And principal 不需要直接操作 CLI/TUI 或解析原始 plan
-  And 高风险 apply 只接受绑定 principal 决定与精确 plan hash 的 approval artifact
+  And 任何非 no-op 配置 apply 只接受绑定 principal 决定与精确 plan hash 的 approval artifact
   And receipt 分别记录 principal approver 与 operator Agent
 ```
 
@@ -48,7 +48,23 @@ Scenario: 外部版本只在吸收为 owned revision 后进入 Almagest
   And owned source 形成新的 authored revision
   Then Almagest 只把该 revision 作为普通 owned input 进入 inventory、resolve 和 plan
   And upstream provenance 只作惰性元数据，不取得 authority
-  And 吸收后的可执行或可调用内容仍须经过 DEC-03D 风险策略
+  And 吸收后的任何配置差异仍须经过 DEC-03D 逐变更审批
+```
+
+```gherkin
+Scenario: 任何配置差异都先报警并等待当前 plan 批准
+  Given Almagest 基于固定 source、resolved revision 和 target inventory 生成 plan
+  And plan 包含至少一个新增、删除、修改、mask、shadow、移动、接纳或修复动作
+  When operator Agent 请求 apply
+  Then Almagest 返回结构化差异并保持零写入
+  And operator Agent 向 principal 摘要说明 target、before/after、provenance、动作和影响
+  And principal 可以批准当前精确 plan、拒绝或要求调整后重新 plan
+  When operator Agent 提交绑定 principal 决定、完整 action set、固定输入和 plan hash 的 approval artifact
+  Then Almagest 只执行获批 plan
+  And receipt 分别记录 principal approver 与 operator Agent
+  And 任一输入、action set 或 plan hash 变化都会令旧 approval 失效
+  And 普通配置批准不能越过 capability exception、source contamination 或其它硬策略 block
+  And 只读操作与 no-op 不要求批准，也不产生隐式写入
 ```
 
 ```gherkin
@@ -107,6 +123,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 单次冲突裁决与 source 持久修复是两条不同路径；未经 principal 明确指示不得从前者升级到后者。
 - [ ] source contamination 默认只阻断并告警；自动隔离、恢复、删除或 adopt 均不构成隐含恢复权限。
 - [ ] 外部候选、周期检查与吸收完全位于 Almagest 之外；只有吸收后的 owned revision 能改变配置计划。
+- [ ] 所有非 `no-op` 配置写计划均先报警并逐 plan 取得 principal 批准；不按风险或资产类型静默放行。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收

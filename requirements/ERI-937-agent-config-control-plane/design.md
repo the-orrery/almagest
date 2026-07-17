@@ -36,10 +36,10 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 
 ## 操作者与批准者模型
 
-Almagest 的主要调用者不是直接操作 CLI/TUI 的人，而是受 principal 指挥的 AI Agent。principal 用自然语言表达目标、裁决歧义并批准高风险动作；operator Agent 调用、解释并驱动流程；Almagest 只做确定性的 plan/apply/verify 和策略执行。
+Almagest 的主要调用者不是直接操作 CLI/TUI 的人，而是受 principal 指挥的 AI Agent。principal 用自然语言表达目标、裁决歧义并批准所有非 `no-op` 配置变更；operator Agent 调用、解释并驱动流程；Almagest 只做确定性的 plan/apply/verify 和策略执行。
 
 ```text
-Principal（目标、歧义裁决、高风险批准）
+Principal（目标、歧义裁决、逐变更批准）
   └─ Operator Agent（Codex / Claude / QoderCLI；调用、解释、提交批准、重试）
        └─ Almagest（确定性解析、预演、实施、验证、审计）
             └─ Consumer config（被治理的 Codex / Claude / Qoder 配置）
@@ -50,7 +50,7 @@ Principal（目标、歧义裁决、高风险批准）
 1. canonical interface（规范主接口）必须是稳定、非交互、机器可消费的命令/API 合同，提供结构化 schema、诊断码、退出码、plan/receipt ID、provenance、diff 和可选 resolution action；具体传输形态留给实现阶段。
 2. 默认输出应紧凑，只返回 Agent 做下一步判断所需的摘要和引用 ID；详细 provenance、diff 与解释按 ID 按需获取，避免每轮把完整证据塞进上下文。
 3. principal 不需要直接解析原始 plan、编辑配置或操作 `[y/N]` prompt。operator Agent 负责把结构化结果翻译成人话、请求拍板，再提交绑定该决定和精确 plan hash 的 approval artifact。
-4. principal 的批准责任与 operator Agent 的执行身份必须分开记录。Agent 可以自主做只读 inventory/plan/verify，但不得把自己的推断冒充 principal 对高风险动作的批准。
+4. principal 的批准责任与 operator Agent 的执行身份必须分开记录。Agent 可以自主做只读 inventory/plan/verify，但任何非 `no-op` 写计划都必须先报警并取得 principal 对当前精确 plan 的批准；Agent 不得把自己的推断冒充批准。
 5. 面向人的 TUI、wizard 或 dashboard 不是 v1 必需能力；未来即使增加，也只能是同一机器合同的客户端，不能形成第二套 authority 或行为语义。
 
 这里的 operator Agent 与 consumer 是两个角色：前者是本次调用 Almagest 的执行主体，后者是配置被投影给的目标实例。同一产品可能同时扮演两者，但在 plan、approval 和 receipt 中不得混用身份。
@@ -71,7 +71,7 @@ Principal（目标、歧义裁决、高风险批准）
 | 术语 | 工作定义 |
 |---|---|
 | asset | 被治理的 skill、MCP、instructions、settings、hook、plugin 等能力单元；确切范围由 DEC-01 决定 |
-| principal | 通过自然语言给出目标、裁决歧义并批准高风险动作的人；不承担日常 CLI/TUI 操作 |
+| principal | 通过自然语言给出目标、裁决歧义并批准每个非 `no-op` 配置计划的人；不承担日常 CLI/TUI 操作 |
 | operator Agent | 代表 principal 调用 Almagest、解释结构化结果、提交批准和驱动重试的 AI Agent |
 | consumer | 消费配置的稳定 Agent 实例，例如 Codex、QoderCLI、Claude；具体产品版本是该实例的观测属性 |
 | source | 对声明内容拥有权威性的来源；cache、rendered artifact 和 live target 默认不是 source |
@@ -331,15 +331,15 @@ Principal（目标、歧义裁决、高风险批准）
 
 ### DEC-03 权威来源与信任
 
-- 状态：03A v0.2、03B1、03B2、03C 已拍板；03D 待给方案
+- 状态：03A v0.2、03B1、03B2、03C、03D 已拍板
 - 依赖：DEC-01、DEC-02。
 - 决策轴：
   - 03A：GitHub personal/shared、Mac-local work、host-local binding 与派生目录各自能声明什么，ownership 如何分配；外部 registry/upstream 是否构成 Almagest source class。
   - 03B1：多个已获 authority 的候选仍无法由确定规则裁决时，如何输出结构化 conflict artifact、取得 principal 决定并决定该裁决的生效范围。
   - 03B2：检测到 cache、resolved、rendered 或 live 反向污染 source 后，是否自动隔离/恢复，以及如何阻断、取证和取得 principal 决定。污染证据类型、置信度和 freshness 合同由 DEC-07/16 细化。
   - 03C：外部候选的发现、检查、拉取、评审、吸收和周期调度是否属于 Almagest；吸收后的 owned revision 如何进入正常配置闭环。
-  - 03D：skill、hook、MCP 等可执行或可调用内容如何分级风险并获批。
-- 初步验收：每个 resolved field/contribution 能追溯到允许的 owned authority；外部候选在吸收前对 desired state 零权威；最终裁决与输入 revision/digest 不可歧义；临时裁决不冒充稳定一致；不可信输入 fail closed。
+  - 03D：是否按 skill、hook、MCP、plugin 等类型或风险等级区别审批，还是任何非 `no-op` 配置差异都统一报警并由 principal 实时处理。
+- 初步验收：每个 resolved field/contribution 能追溯到允许的 owned authority；外部候选在吸收前对 desired state 零权威；最终裁决与输入 revision/digest 不可歧义；临时裁决不冒充稳定一致；任何配置写入均有当前精确 plan 的 principal 批准，硬策略拒绝 fail closed。
 
 #### 03A 已拍板：按 source 类型固定 ownership
 
@@ -367,7 +367,7 @@ Principal（目标、歧义裁决、高风险批准）
 - `Must`：固定 owned source-class ownership matrix；所有 source 与声明可审计归类；外部候选吸收前零 authority；吸收后只以 owned revision 进入配置闭环；外部 provenance 不影响 resolve；派生/live 状态无 authority；越权声明 fail closed。
 - `Later`：若未来出现多个团队独立维护同一 source class，再评估 namespace/team delegation；当前不预建通用组织级 authority service。
 - `Out`：GitHub-only 伪单一真相、逐 asset 任意 authority、多主/last-writer-wins、自动 adopt live drift、把 registry/upstream 作为 Almagest source、让外部版本变化直接改变本地 desired state。
-- 后果：03B1 只在已获 authority 且确定规则仍无法裁决的候选之间定义临时裁决；03B2 定义派生物反向污染后的处置，污染 evidence 合同由 07/16 细化；03C 固化外部采集/吸收面 Out 的边界；03D 仍须约束吸收后的可执行内容风险；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
+- 后果：03B1 只在已获 authority 且确定规则仍无法裁决的候选之间定义临时裁决；03B2 定义派生物反向污染后的处置，污染 evidence 合同由 07/16 细化；03C 固化外部采集/吸收面 Out 的边界；03D 对所有吸收后的配置差异采用统一逐变更审批；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
 - 验收断言：每个 resolved asset/field 都能追溯到允许其声明的 owned source class；registry 发布新版本或外部 tag 漂移不会产生 Almagest plan；只有吸收后的新 owned revision 才可能改变 desired state；手改 live target 被报告为 drift 而不是新 source；GitHub base 出现 work-only payload、host-local 重写可移植逻辑或任意派生目录反向声明 desired state 时均阻断。
 
 #### 03B1 已拍板：当前 plan 一次性裁决，修 source 必须显式指示
@@ -427,12 +427,33 @@ Principal（目标、歧义裁决、高风险批准）
 - 外部工具边界：周期调度、网络访问、registry credential、候选发现、版本比较、拉取、依赖解析、签名/attestation 校验、候选 diff/review、晋级与写入 owned source 均不属于 Almagest。是否建设何种周期工具也不由本决策预设。
 - 水位读取：外部周期工具最多消费 owned source 的 revision/time 与可选 upstream provenance，判断从哪个上游水位继续检查。Almagest 不负责调度该工具，也不把检查结果、候选版本或“可更新”状态纳入 desired、plan、drift 或 receipt。
 - 接入合同：外部流程把内容写入 GitHub personal/shared 或 Mac-local work 并形成新 authored revision 后，Almagest 才按普通 owned source 执行 inventory → resolve → plan → apply → verify。候选区、下载 cache 或 quarantine 不在 source root 内时完全忽略；若进入 source root，则按 03B2 source contamination 阻断，不能自动吸收。
-- `Must`：只解析 owned source；输入固定到 owned revision；外部 provenance 仅作惰性元数据；外部版本变化对 Almagest 零状态变化；吸收后的内容重新经过正常 authority、residency、overlay、capability 与后续 03D 风险策略。
+- `Must`：只解析 owned source；输入固定到 owned revision；外部 provenance 仅作惰性元数据；外部版本变化对 Almagest 零状态变化；吸收后的内容重新经过正常 authority、residency、overlay、capability 与 03D 统一逐变更审批。
 - `Later`：Almagest 内无外部版本管理扩展项；未来若要让它承担任一上游检查或吸收责任，必须由 principal 明确重开本边界，而不是从 provenance 字段自然扩权。
 - `Out`：上游调度与通知、registry client/adapter、网络与凭据、floating ref resolution、外部候选状态机、下载/cache/quarantine、签名与依赖验证、候选审批、PR/merge 和自动吸收。
 - 接受的代价：Almagest 无法单独回答“上游是否有新版本”或保证外部内容新鲜度；外部检查工具失效时，配置仍保持可复现和一致，但可能停留在旧的 owned revision。
-- 后果：03A v0.2 删除 external authority；DEC-07/16 最多暴露 owned source revision/time 与惰性 provenance，不记录外部候选状态；DEC-09 只固定 owned revision；DEC-12 不把上游可用版本视为配置漂移；DEC-13 只分发 owned 内容；DEC-14 的配置生命周期从吸收完成后的 revision 开始；DEC-15 的 adapter 只适配 consumer 配置，不适配上游 registry。03D 仍须决定吸收后的 skill、hook、MCP、plugin 等可执行/可调用内容如何获批；“已 owned”不等于“已安全”。
-- 验收断言：外部 tag、release 或 registry metadata 单独变化时，Almagest 的 inventory/desired/plan 均不变化；外部工具吸收内容并产生新 owned revision 后，Almagest 只显示该 revision 引起的普通配置差异；Almagest 配置、状态和凭据中不存在上游调度或拉取责任；source root 外的候选被忽略，进入 source root 的候选按 03B2 阻断；吸收后的可执行内容仍不能绕过 03D。
+- 后果：03A v0.2 删除 external authority；DEC-07/16 最多暴露 owned source revision/time 与惰性 provenance，不记录外部候选状态；DEC-09 只固定 owned revision；DEC-12 不把上游可用版本视为配置漂移；DEC-13 只分发 owned 内容；DEC-14 的配置生命周期从吸收完成后的 revision 开始；DEC-15 的 adapter 只适配 consumer 配置，不适配上游 registry。吸收后的 skill、hook、MCP、plugin 等内容与其它配置一样，必须通过 03D 的逐变更批准；“已 owned”不等于“已批准”或“已安全”。
+- 验收断言：外部 tag、release 或 registry metadata 单独变化时，Almagest 的 inventory/desired/plan 均不变化；外部工具吸收内容并产生新 owned revision 后，Almagest 只显示该 revision 引起的普通配置差异；Almagest 配置、状态和凭据中不存在上游调度或拉取责任；source root 外的候选被忽略，进入 source root 的候选按 03B2 阻断；吸收后的任何配置差异仍须取得 03D 的当前 plan 批准。
+
+#### 03D 已拍板：任何配置差异统一报警并逐 plan 批准
+
+| 候选 | 配置差异审批模型 | 结果 |
+|---|---|---|
+| A：统一逐变更审批 | 所有会产生写动作的非 `no-op` plan 都先阻断并报警；principal 实时审阅当前精确 diff 后批准、拒绝或要求改 plan | **已选择** |
+| B：按风险等级审批 | 只让高风险差异等待 principal；低风险差异自动 apply | 拒绝：需要维护风险分类器，并可能把误分类变成静默写入 |
+| C：按资产类型审批 | hook、MCP、plugin 等固定类型等待批准，skill/instruction/settings 等默认自动 apply | 拒绝：同一类型内部风险差异很大，也违背“有差异就报警” |
+| D：完整内容安全门 | 在审批前追加签名、静态分析、沙箱或行为探测，并由结果决定是否可 apply | 拒绝：扩成内容与供应链安全平台；仍不能替代 principal 对具体配置差异的判断 |
+
+- 决定（v0.1，2026-07-17，approver: principal）：03D 选择 **A——统一逐变更审批**。不对 skill、instruction、settings、hook、MCP、plugin 或其它受管配置建立高/中/低风险等级；任何会新增、删除、修改、mask、shadow、移动或接纳配置的非 `no-op` plan 都先返回结构化差异并阻断写入，由 operator Agent 报警给 principal 现场处理。
+- 审批合同：principal 可以批准整个精确 plan、拒绝，或要求 Agent 调整 source/目标/动作后重新 plan。approval artifact 必须绑定 target、plan hash、source/resolved revision、相关 inventory snapshot、完整 action/diff set、principal approver 与 operator Agent；任一输入、差异集合、动作或 plan hash 变化后旧批准失效。
+- 适用范围：正常 source 更新、首次 bootstrap/projection、absorbed revision、render 变化、live drift 修复，以及 adopt/remove/mask 等写动作都适用。只读 inventory、plan、diff、explain、verify 和真正的 `no-op` 不需要批准，也不能借只读操作产生隐式写入。
+- 告警内容：Almagest 提供稳定差异 ID、target、asset/field、before/after、provenance、动作、影响与阻断原因；operator Agent 负责把它压缩为 principal 可实时判断的摘要，并按 ID 展开完整证据。具体 plan/approval schema 与紧凑摘要由 DEC-09/10 定义。
+- 与既有门禁的关系：本项是所有写计划的通用必要条件，不替代专项阻断。DEC-02C 的 capability exception、03B1 的冲突裁决必须满足各自合同后才能形成或批准可执行 plan；03B2 contamination、authority violation、work residency/egress deny、secret 泄漏等硬策略拒绝不能因 principal 批准普通 diff 而放行。多种 approval 如何在一次 principal 对话中组合，由 DEC-09/10 定义。
+- `Must`：所有非 `no-op` 配置写计划默认阻断；逐 plan 报警；完整 diff 可展开；principal 实时批准；approval 绑定精确输入与动作；输入变化即失效；receipt 分开记录 approver 与 operator；无批准零写入。
+- `Later`：若实际审批量造成不可接受的负担，只能由 principal 重开本轴评估批量批准或自动化；当前不预建风险等级、资产白名单、永久 `always allow` 或历史批准复用。
+- `Out`：低风险自动 apply、按资产类型静默放行、Agent 自行批准、永久批准、从历史选择推断未来授权、自动 drift 修复/adopt，以及把签名、静态分析、沙箱或行为探测建设成 Almagest 的内容安全平台。
+- 接受的代价：首次安装、普通文本微调和低风险配置也会报警，principal 的审批次数增加；Almagest 只能证明“展示了什么差异、谁批准了哪个精确 plan、执行是否等价”，不能证明被批准内容本身无恶意或业务上正确。
+- 后果：DEC-09 必须把所有非 `no-op` plan 标为 `approval_required` 或等价状态并输出紧凑摘要；DEC-10 必须拒绝无有效 approval 的写动作；DEC-12 只能检测并报警 drift，不能自动修复；DEC-16 必须记录完整 diff、principal approver、operator Agent、approval、apply 与结果链。
+- 验收断言：任一 target 的任一配置写动作在无有效 approval 时均为零写入；principal 能通过 Agent 先看到完整差异及影响，再批准当前精确 plan；任何输入变化都会令旧 approval 失效；普通批准不能越过专项 exception 合同或硬策略 block；只读与 `no-op` 不制造审批噪音。
 
 ### DEC-04 Source 驻留与投影策略
 
@@ -581,7 +602,7 @@ Principal（目标、歧义裁决、高风险批准）
 
 | 用户成功口径 | 主责任卡 | 需覆盖对象 | 最终证据 |
 |---|---|---|---|
-| principal 通过 AI Agent 操作，机器合同稳定且高风险动作保留人工拍板 | DEC-09、DEC-10、DEC-12、DEC-16 | principal、operator Agent、Almagest、consumer 四种角色 | machine contract fixture + approval/receipt golden case |
+| principal 通过 AI Agent 操作，机器合同稳定且所有配置写动作保留人工拍板 | DEC-03D、DEC-09、DEC-10、DEC-12、DEC-16 | principal、operator Agent、Almagest、consumer 四种角色 | machine contract fixture + approval/receipt golden case |
 | target 应有资产及其 authority/overlay | DEC-01—DEC-06 | 13 个受管配置域、6 类绑定/依赖观测事实；四个已知 consumer | capability spec assertion + fixture |
 | apply 前完整说明变化与原因 | DEC-07—DEC-10 | 每个 host/consumer/source class | plan contract + golden plan |
 | v1 apply 后证明 live 配置与 active binding 正确 | DEC-07—DEC-10、DEC-12 | Mac Codex/Qoder；Windows Codex/Claude | config/binding inventory + drift fixture |
@@ -596,7 +617,7 @@ DEC-01A—01C 已补齐资产范围、identity、version/derivation/conflict 关
 |---|---|---|---|---|---|---|---|
 | A-01 | Assumption | resolved | high | Mac 是否需要 personal/work 两个 consumer context | principal | 2026-07-16 确认不需要；每个 Mac consumer 一个 target，effective config 为 GitHub base + work-local overlay | DEC-02、DEC-04 |
 | A-02 | Assumption | resolved | high | shared 与 work 配置是否为两份完整配置或 overlay | principal | 2026-07-16 确认 GitHub personal/shared base 两机消费，Mac-local work 只作增量 overlay | DEC-02—DEC-05 |
-| A-03 | Assumption | resolved | high | 谁直接操作 Almagest，principal 是否需要面向人的 CLI/TUI | principal | 2026-07-16 确认 principal 通过自然语言指挥 AI Agent；Agent 是 operator，Almagest 是确定性引擎，principal 只保留目标、歧义和高风险拍板 | 全局；DEC-09、DEC-10、DEC-12、DEC-16 |
+| A-03 | Assumption | resolved | high | 谁直接操作 Almagest，principal 是否需要面向人的 CLI/TUI | principal | 2026-07-16 确认 principal 通过自然语言指挥 AI Agent；2026-07-17 DEC-03D 进一步确认任何非 `no-op` 配置写计划都由 Agent 报警并交 principal 实时批准 | 全局；DEC-03D、DEC-09、DEC-10、DEC-12、DEC-16 |
 | R-01 | Risk | open | critical | work-local payload 可能经 GitHub、Windows cache/render、plan/receipt 或 live projection 泄漏 | Codex | 独立 source root + 全链路 negative fixture；Almagest 管理面内 fail closed，不以 `.gitignore` 作为安全边界 | DEC-02、DEC-04、DEC-06、DEC-09、DEC-13 |
 | R-02 | Risk | open | medium | Later：vendor 无 runtime probe，文件正确却无法证明 consumer 生效 | Codex | 使用 evidence ladder；最高只报 inferred/unknown；不阻塞 v1 配置闭环 | DEC-11 |
 | I-01 | Issue | open | high | QoderCLI 的真实 roots、precedence、frontmatter、profile 未完整取证；runtime inventory 属 Later | Codex | v1 固定产品版本并取得 roots/precedence 实机证据；Later 再补 probe | DEC-08、DEC-11 |
