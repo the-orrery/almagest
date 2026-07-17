@@ -68,6 +68,20 @@ Scenario: 任何配置差异都先报警并等待当前 plan 批准
 ```
 
 ```gherkin
+Scenario: 驻留权限跟随 source 且 work source 无单项例外
+  Given GitHub personal/shared source 中存在一个受管 asset
+  And Mac-local work source 中存在另一个受管 asset
+  When Almagest 为 Mac target 解析 source eligibility
+  Then GitHub asset 与 work asset 都可以成为 Mac Codex/Qoder 的候选
+  When Almagest 为 Windows target 或跨机汇总面解析 source eligibility
+  Then GitHub asset 可以成为 Windows Codex/Claude 的候选
+  And work asset、work field contribution 及任何含 work payload 的派生物均被排除
+  And 任一 work payload 已出现在 GitHub、Windows 或其它非授权位置时必须返回硬策略 block
+  And 不存在能放宽该结果的 per-asset allowed-host 字段、白名单或临时 approval
+  And 把 work asset 迁移为 GitHub asset 必须形成显式 authored change、新 source revision 和 DEC-03D 新 plan
+```
+
+```gherkin
 Scenario: 顺序化完成一个决策轴拍板
   Given 当前决策卡的上游依赖均已拍板
   And Codex 已说明问题、事实边界与需要澄清的信息
@@ -124,6 +138,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] source contamination 默认只阻断并告警；自动隔离、恢复、删除或 adopt 均不构成隐含恢复权限。
 - [ ] 外部候选、周期检查与吸收完全位于 Almagest 之外；只有吸收后的 owned revision 能改变配置计划。
 - [ ] 所有非 `no-op` 配置写计划均先报警并逐 plan 取得 principal 批准；不按风险或资产类型静默放行。
+- [ ] 驻留权限只跟 source；Mac-local work 全量 Mac-only，任何 asset、标签或临时批准都不能单独放宽。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收

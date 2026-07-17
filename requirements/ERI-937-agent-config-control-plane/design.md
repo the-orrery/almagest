@@ -112,7 +112,7 @@ Principal（目标、歧义裁决、逐变更批准）
 | DEC-01 | 资产范围与身份 | v1 管什么；每类资产如何获得稳定身份 | 资产类型清单与 identity contract |
 | DEC-02 | 目标拓扑与隔离能力 | target 由哪些维度组成；物理环境能否承载所需隔离 | target key 与 capability/unsupported 规则 |
 | DEC-03 | 权威来源与信任 | 谁拥有真相；外部来源和可执行内容如何受信 | source authority 与 supply-chain policy |
-| DEC-04 | Source 驻留与投影策略 | personal/shared 与 work-local 如何组合、允许、阻断和例外 | placement/projection policy 与防泄漏约束 |
+| DEC-04 | Source 驻留与投影策略 | personal/shared 与 work-local 如何组合、允许、阻断并执行无例外驻留 | placement/projection policy 与防泄漏约束 |
 | DEC-05 | Overlay 与解析 | 各 layer 及各类 asset 如何合成、删除和冲突 | 确定性 resolved desired state |
 | DEC-06 | Secret 与本地参数 | secret、路径、账号和 host 差异放哪里 | 不泄漏且可移植的 local-value contract |
 | DEC-07 | Inventory | source、resolved、rendered、live、effective 各盘点什么 | 有证据边界的全状态清单 |
@@ -304,7 +304,7 @@ Principal（目标、歧义裁决、逐变更批准）
 - `Must`：稳定 host/consumer ID；target 属性与 ID 分离；personal/shared 与 work-local source eligibility 可审计；任何 Windows target 的 source、cache、resolved、rendered、plan/receipt 和 live 内容都不包含 work-local payload。
 - `Later`：对单次 CLI/env invocation 的逐次 fingerprint 与 runtime 使用证明；当前只观测会改变默认 active config 的稳定绑定。
 - `Out`：为当前不存在的 personal/work 双 context、任意 cwd 或单次 invocation 建永久 target；仅靠 `.gitignore` 宣称 work residency 已受保护；把 OS backup/sync 生命周期纳入 Almagest。
-- 后果：DEC-03 定义 GitHub personal/shared 与 Mac-local work 的 authority/trust；DEC-04 定义 placement/egress deny、Mac union 和例外；DEC-05 固定 overlay；DEC-06/13 决定哪些脱敏元数据允许离开 Mac。capability/unsupported 行为由下述 02C 独立决定。
+- 后果：DEC-03 定义 GitHub personal/shared 与 Mac-local work 的 authority/trust；DEC-04 定义 placement/egress deny、Mac union 和无例外驻留；DEC-05 固定 overlay；DEC-06/13 决定哪些脱敏元数据允许离开 Mac。capability/unsupported 行为由下述 02C 独立决定。
 - 验收断言：四个 consumer 均映射到唯一稳定 target；升级 consumer、改变 binary path/root 不产生新 target；Mac 两个 target 解析 base + work overlay，Windows 两个 target 只解析 base；任一 work payload 出现在 Windows 或未授权中间产物时必须被检测为 policy violation，而不是 drift success。
 
 #### 02C 已拍板：默认阻断 + 单次 break-glass 二次确认
@@ -457,14 +457,34 @@ Principal（目标、歧义裁决、逐变更批准）
 
 ### DEC-04 Source 驻留与投影策略
 
-- 状态：待给方案
+- 状态：04A 已拍板；04B—04D 待给方案
 - 依赖：DEC-02、DEC-03。
 - 决策轴：
-  - 04A：GitHub personal/shared 与 Mac-local work 的 source/asset classification、allowed hosts 和 egress deny 如何定义。
+  - 04A：驻留权限是跟随 source，还是允许每项 asset 单独声明 allowed hosts 或例外。
   - 04B：Mac 的 base + work union、Windows 的 base-only 如何形成确定投影。
-  - 04C：默认 allow/deny、例外授权以及 source/cache/render/receipt/live 全链路防泄漏如何定义。
+  - 04C：如何在 source/cache/resolved/rendered/plan/receipt/live 全链路执行默认拒绝、零例外的 work 防泄漏，并报告和恢复违规状态。
   - 04D：哪些脱敏元数据允许跨机；无法证明 residency 时的停止条件与迁移要求。
-- 初步验收：work-only payload 进入 Windows 或非授权中间产物必须 `block`；任何例外有显式授权和 receipt；不存在虚构的 Mac personal/work 双 target。
+- 初步验收：work-only payload 进入 Windows 或非授权中间产物必须 `block`；不存在逐 asset 放宽或临时例外；不存在虚构的 Mac personal/work 双 target。
+
+#### 04A 已拍板：驻留权限只跟 source，work source 全量 Mac-only
+
+本轴已被 DEC-02 的 source topology 与 principal 的约束确认收敛为单一可行口径，因此不再制造 A/B/C/D 伪选项。需要固化的规则是：资产放在哪个 authority source，就继承哪个 source 的驻留边界；每项资产不再单独声明或放宽 allowed hosts。
+
+| Source | 所有内容的驻留边界 | 单项 asset 能否覆盖 |
+|---|---|---|
+| GitHub personal/shared base | 可以被 Mac 与 Windows 的已授权 consumer 消费 | 不能；需要更严格驻留时必须进入另一 source |
+| Mac-local work | 只能留在 Mac 工作机，并且只能投影给该机的 Codex/Qoder target；不得进入 GitHub 或 Windows | 不能；不存在“这一个 work asset 可以外发”的例外 |
+
+- 决定（v0.1，2026-07-17，approver: principal）：04A 采用 **source 级硬驻留**。source 是驻留策略的最小声明与执行单元；其下所有 asset、field contribution 和 content-bearing 派生物自动继承该边界。任何包含 work source contribution 的 resolved/rendered/plan/receipt/live payload 都按更严格的 Mac-only 边界处理。
+- source 边界：Mac-local work 使用与 GitHub checkout 分离的独立 source root；不能靠 `.gitignore`、文件名、目录名或 Agent 猜测资产性质建立安全边界。`source_id/source_class` 的受管 inventory 是判定入口，具体 manifest/schema 留给 DEC-07。
+- 无例外合同：asset 不拥有 `allowed_hosts` 放宽字段，不支持 per-file waiver、临时 egress approval 或把 work 内容复制到 GitHub/Windows 后再补标签。若未来确实需要共享某项内容，principal 必须明确要求把它改写/迁移为 GitHub personal/shared 的 authored asset，形成新 source revision，并按 DEC-03D 重新 plan 和批准；这不是驻留例外。
+- 派生继承：纯 GitHub 输入可以为 Mac 或 Windows 生成派生物；只要输入集合含任一 work contribution，整个 content-bearing 派生结果就是 Mac-only。04D 可以讨论哪些不含 work payload、不可还原内容的最小元数据允许跨机，但不能反向放宽本项。
+- `Must`：source 级 residency classification；asset 与字段贡献自动继承；work source 全量 Mac-only；混合派生取最严格边界；无逐 asset 放宽和临时例外；违规输入 fail closed。
+- `Later`：若未来出现第三种真实驻留边界，新增独立 source class/root 并重开本轴；当前不预建通用标签表达式或例外系统。
+- `Out`：per-asset allowed-host policy、资产白名单、临时外发 approval、路径/文件名启发式、用 `.gitignore` 充当安全边界，以及把 work payload 先复制到非授权位置再检测。
+- 接受的代价：即使某个 work asset 后来被判断为可共享，也不能原地加例外；必须经过显式 source 迁移、内容审阅、新 revision 和逐 plan 批准。以此换取规则简单、可静态验证且不会因单项标签遗漏而泄漏。
+- 后果：04B 只需生成 Mac 的 GitHub + work union 与 Windows 的 GitHub-only 投影；04C 不再设计例外授权，只设计全链路阻断、告警与恢复；04D 只能定义不携带或不可还原 work payload 的元数据边界；DEC-07/09/13/16 必须保留 source residency provenance 并解释拒绝原因。
+- 验收断言：任一 GitHub source asset 可进入已授权 Mac/Windows target；任一 work source asset 或含 work contribution 的派生物在 Windows、GitHub 或其它非授权位置出现时必须阻断；不存在能放宽该结论的 asset 字段或 approval；从 work 迁移到 GitHub 必须成为显式 authored change、新 revision 和 DEC-03D 新 plan，而不是更新标签。
 
 ### DEC-05 Overlay 与解析
 
