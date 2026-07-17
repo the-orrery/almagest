@@ -331,14 +331,15 @@ Principal（目标、歧义裁决、高风险批准）
 
 ### DEC-03 权威来源与信任
 
-- 状态：03A 已拍板；03B—03D 待给方案
+- 状态：03A、03B1 已拍板；03B2、03C、03D 待给方案
 - 依赖：DEC-01、DEC-02。
 - 决策轴：
   - 03A：GitHub personal/shared、Mac-local work、host-local binding、外部 registry 与派生目录各自能声明什么，ownership 如何分配。
-  - 03B：多个已获 authority 的候选重叠时如何按字段/资产裁决；如何检测 cache、rendered 和 live 反向污染 source；如何输出可供 operator Agent 解释、由 principal 现场裁决并可持久化后重算的结构化 conflict artifact。具体裁决语义仍待拍板。
+  - 03B1：多个已获 authority 的候选仍无法由确定规则裁决时，如何输出结构化 conflict artifact、取得 principal 决定并决定该裁决的生效范围。
+  - 03B2：如何检测 cache、resolved、rendered 和 live 反向污染 source，以及发现污染后的隔离、恢复和取证语义。
   - 03C：外部 source、浮动 revision、签名/digest、allowlist 和更新策略如何受信。
   - 03D：skill、hook、MCP 等可执行或可调用内容如何分级风险并获批。
-- 初步验收：每个 resolved field/contribution 能追溯到允许的 authority；最终裁决与输入 revision/digest 不可歧义；不可信输入 fail closed。
+- 初步验收：每个 resolved field/contribution 能追溯到允许的 authority；最终裁决与输入 revision/digest 不可歧义；临时裁决不冒充稳定一致；不可信输入 fail closed。
 
 #### 03A 已拍板：按 source 类型固定 ownership
 
@@ -361,12 +362,34 @@ Principal（目标、歧义裁决、高风险批准）
 
 - 采用权与内容权分离：GitHub base 或 Mac-local work 声明“采用哪个外部内容、给哪些 target 使用”；registry/upstream 只提供该 revision 的内容。外部 source 的锁定、签名、digest、allowlist 与更新方式仍由 03C 决定，本项不预判信任机制。
 - scope enforcement：每个 source 必须声明稳定 `source_id`、`source_class` 与 `authority_scope`。source 在 scope 外声明内容属于 authority violation，进入 plan 时直接阻断；不得把它降格成普通低优先级候选，也不得通过 DEC-02C break-glass 放行。
-- overlap 边界：work source 可以声明 work-only asset 和允许的 work delta，但本项不决定它能否覆盖、删除或拼接 GitHub base 的具体字段；host-local 只能填入已授权的本机 binding slot。字段级 ownership、冲突裁决和 merge algebra 分别留给 03B、05、06。
+- overlap 边界：work source 可以声明 work-only asset 和允许的 work delta，但本项不决定它能否覆盖、删除或拼接 GitHub base 的具体字段；host-local 只能填入已授权的本机 binding slot。字段级冲突裁决、merge algebra 和本机值边界分别留给 03B1、05、06。
 - `Must`：固定 source-class ownership matrix；所有 source 与声明可审计归类；外部 package 的本地采用权与上游内容权分离；派生/live 状态无 authority；越权声明 fail closed。
 - `Later`：若未来出现多个团队独立维护同一 source class，再评估 namespace/team delegation；当前不预建通用组织级 authority service。
 - `Out`：GitHub-only 伪单一真相、逐 asset 任意 authority、多主/last-writer-wins、自动 adopt live drift、让 registry 更新直接改变本地 desired state。
-- 后果：03B 只在已获 authority 的候选之间定义裁决；03C 定义 external source/revision 的信任与更新；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
+- 后果：03B1 只在已获 authority 且确定规则仍无法裁决的候选之间定义临时裁决；03B2 定义派生物反向污染检测；03C 定义 external source/revision 的信任与更新；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
 - 验收断言：每个 resolved asset/field 都能追溯到允许其声明的 source class；registry 发布新版本不会自动改变本地采用或启用状态；手改 live target 被报告为 drift 而不是新 source；GitHub base 出现 work-only payload、host-local 重写可移植逻辑或任意派生目录反向声明 desired state 时均阻断。
+
+#### 03B1 已拍板：当前 plan 一次性裁决，修 source 必须显式指示
+
+本轴只处理多个候选均已通过 03A authority 检查、但 DEC-05 的确定性 precedence/merge 规则仍无法唯一解析的冲突。authority violation、source trust、secret 泄漏和 work residency/egress deny 等硬策略拒绝不进入本轴。
+
+| 候选 | 冲突裁决如何持久化 | 结果 |
+|---|---|---|
+| A：当前 plan 一次性裁决 | principal 为精确 conflict set 选择本次结果；source 与全局规则不变，下次 plan 重新阻断 | **已选择** |
+| B：Almagest 持久化裁决规则 | 把选择保存为独立 resolution registry，后续自动复用 | 拒绝：会形成 source 之外的第二份配置真相 |
+| C：必须先修 source | 不允许临时 apply；operator Agent 修改权威 source 后重新 plan | 拒绝作为默认：未经 principal 明确转向，不应自动扩大为 source 变更 |
+| D：默认修 source，必要时持久化规则 | 同时支持 C 与 B，由系统或 Agent 决定路径 | 拒绝：默认动作和状态面过多，弱化 principal 对 source 修改的显式控制 |
+
+- 决定（v0.1，2026-07-16，approver: principal）：03B1 选择 **A——当前 plan 一次性裁决**。默认流程是阻断并返回结构化 conflict artifact；operator Agent 解释候选、provenance、差异与影响，principal 只为当前精确 plan 选择结果。
+- 单次裁决合同：approval artifact 必须绑定 target、plan hash、完整 conflict set、固定输入 revision、每个冲突的已选 candidate/action、principal approver 和 operator Agent。未取得完整选择时零写入；任一输入、冲突集合或 plan hash 变化即失效。
+- source 边界：一次性裁决不修改 authored source、不创建永久 precedence/rule，也不允许 operator Agent 从本次选择推断“以后都这样”。只有 principal 明确要求“修 source”或等价动作时，Agent 才进入正常 source 变更流程，修改拥有 authority 的 source、生成新 revision 并重新 plan；该动作不复用本次临时裁决冒充 source approval。
+- 状态与重复：apply 结果必须标记为 `applied_with_transient_resolution` 或等价 exception 状态，receipt 保存冲突、选择、理由和结果；不得报告为普通 `compliant`。由于 source 仍存在歧义，下次 plan 必须重新阻断并再次请求 principal 决定。
+- `Must`：结构化 conflict artifact；默认阻断；逐 conflict 明确选择；approval 绑定精确 plan；source 零修改；exception receipt；下次重新阻断；显式“修 source”才允许持久变更并强制 replan。
+- `Later`：若重复冲突造成不可接受的审批负担，再由 principal 重开本轴评估持久规则；当前不预建 resolution registry。
+- `Out`：last-writer-wins、按 layer/时间猜测 principal 意图、自动修 source、Agent 自行批准、把单次选择升级为永久规则、复用已失效的裁决，或用本轴越过硬策略拒绝。
+- 接受的代价：该选择保留了 principal 对每次歧义和 source 修改的完全控制，但不会让歧义 source 自动收敛；重复冲突会重复消耗审批，并使对应 target 保持 exception 而非稳定合规状态。
+- 后果：DEC-05 必须先穷尽确定性 overlay/merge，只有真正歧义才产生 conflict；DEC-09 固定 conflict set、候选和 plan hash；DEC-10 验证 approval 与执行等价；DEC-12 持续报告未修 source 的冲突；DEC-16 分别解释 principal 选择、operator Agent 和 exception 状态。03B2 污染检测仍待拍板。
+- 验收断言：无完整单次裁决时冲突导致零写入；获批后只执行精确 plan 中逐项选择的结果且 source digest 不变；重新 plan 时同一 source 歧义再次阻断；只有 principal 明确要求修 source 后才生成 source diff/new revision，并必须基于新 revision 重新 plan。
 
 ### DEC-04 Source 驻留与投影策略
 

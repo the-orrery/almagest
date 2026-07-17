@@ -14,6 +14,18 @@ Scenario: principal 通过 operator Agent 驱动 Almagest
 ```
 
 ```gherkin
+Scenario: authority 合法但仍歧义时只做当前 plan 的一次性裁决
+  Given 多个候选均拥有 authority
+  And 确定性 precedence 与 merge 规则仍无法唯一解析
+  When principal 通过 operator Agent 为当前 conflict set 逐项选择结果
+  Then approval artifact 绑定 target、plan hash、固定输入、完整 conflict set 与选择
+  And apply 只执行该精确 plan，authored source 保持不变
+  And receipt 将结果标记为 transient resolution exception，而不是普通 compliant
+  And 下一次 plan 对未修复的同一 source 歧义重新阻断
+  And 只有 principal 明确要求修 source 时，Agent 才生成 source 变更并基于新 revision 重新 plan
+```
+
+```gherkin
 Scenario: 顺序化完成一个决策轴拍板
   Given 当前决策卡的上游依赖均已拍板
   And Codex 已说明问题、事实边界与需要澄清的信息
@@ -66,6 +78,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 上下游决定无冲突；发生重开时已重审受影响卡片。
 - [ ] 能力模型可以回答任意 target 的 desired、plan、live、effective 与责任来源。
 - [ ] principal、operator Agent、Almagest 与 consumer 四种角色无歧义，机器接口是唯一 canonical contract。
+- [ ] 单次冲突裁决与 source 持久修复是两条不同路径；未经 principal 明确指示不得从前者升级到后者。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收
