@@ -922,7 +922,7 @@ resolve / provider / validate / observe
 
 ### DEC-07 Inventory
 
-- 状态：待给方案
+- 状态：07A 已拍板；07B—07D 待给方案
 - 依赖：DEC-01—DEC-06。
 - 决策轴：
   - 07A：v1 对 source、resolved、rendered、live 和绑定事实盘点到什么粒度；Later 的 effective evidence 是否另表保存。
@@ -930,6 +930,60 @@ resolve / provider / validate / observe
   - 07C：如何标注 observed、inferred、unknown，以及采集时间、版本和证据来源。
   - 07D：发现边界、权限不足、不可访问 host 与部分结果如何表达。
 - 初步验收：报告不把“文件存在”写成“consumer 已加载”；非纳管资产可被发现但不会因此自动取得删除授权。
+
+#### 07A 已拍板：按配置流水线生成 logical stage inventory
+
+本轴决定 v1 要看见哪些配置阶段及其最小粒度。05D 的 `source inventory` 是 authored source 内的控制元数据；07A 的 `stage inventory snapshot` 是一次本机只读盘点产生的阶段事实。后者不得反向取得 source authority，也不证明 consumer 进程已经加载配置。
+
+| 选项 | Inventory 范围 | 结论 |
+|---|---|---|
+| A：两端对比 | 只盘 authored source 与最终 live target | 拒绝：成本最低，但出现差异时无法区分 eligibility/merge、binding、render 还是 materialize 阶段出错 |
+| B：配置流水线 logical stage inventory | 按 logical asset/subresource 盘点 source、resolved、rendered、live，并分栏记录 binding/observation；effective evidence 另表 Later | **已选择** |
+| C：完整物理快照 | 枚举 roots、文件、symlink、cache、provider 与原始内容，保存 host 物理快照 | 拒绝：敏感面与噪声过大，路径细节会压过逻辑资产，也把配置控制面扩成 host snapshot manager |
+| D：Runtime-effective-first | 以 consumer 实际 loaded/registered/callable 状态为主，再反推配置阶段 | 拒绝：依赖不稳定 runtime probe，无法覆盖 consumer 离线状态，并会让观察结果反向主导 desired 配置 |
+
+```text
+authored source inventory + payload
+                │
+                ▼
+            source stage
+                │ eligibility / merge
+                ▼
+binding facts → resolved stage ← capability observations
+                │ consumer adapter / renderer
+                ▼
+           rendered stage
+                │ materialize
+                ▼
+              live stage
+
+effective evidence ── Later / 独立 evidence set ──X──> v1 配置真相
+```
+
+| Stage / facts | v1 盘点对象 | 明确不声称 |
+|---|---|---|
+| `source` | 每个 eligible/ineligible authored contribution 的 source ID/class、inventory entry、logical asset/subresource ID、kind、operation/selector、payload revision 与 source provenance | 不把 unlisted payload、外部候选、live 文件或当前 consumer 状态当 authored contribution |
+| `binding` | slot/entry opaque ID、scope、mode、provider kind、registry revision、resolution status 与 target 关联 | 不保存或报告 secret value、provider locator、本机敏感值，也不把 binding 当第三 authored layer |
+| `observation` | target/consumer/schema/capability 等解析与验证实际使用的 host fact identity、status 与 evidence reference | 不把 observation 当 desired value；置信度、freshness 与 observed/inferred/unknown 规则留给 07C |
+| `resolved` | 每个 target 的 canonical logical asset/subresource、resolved revision/digest、schema version、contribution lineage、merge/conflict/binding/optional 状态 | 不代表 consumer 格式，不复制 source payload，也不因 resolve 成功宣称已写入 live |
+| `rendered` | consumer-specific derived artifact/item ID、target、renderer/adapter version、expected semantic digest、resolved lineage 与 intended live ref | 不取得 authored authority，不把生成成功写成 materialize 成功或 runtime effective |
+| `live` | adapter 声明的受限 config root/key 中实际存在、缺失、不可读或无法映射的文件/config item，及其 observed semantic digest、parse/read status、rendered mapping | 不把“存在/可解析”写成 loaded、enabled、callable 或 observed-used |
+| `effective`（Later） | DEC-11 单独定义的 present/registered/discoverable/enabled/callable/observed-used evidence、consumer version 与 probe identity | 不进入 v1 stage snapshot 的成功口径，不覆盖 source/resolved/rendered/live 事实 |
+
+- 决定（v0.1，2026-07-17，approver: principal）：07A 选择 **B——按配置流水线生成 logical stage inventory**。v1 在当前 host、当前 target 上盘点 `source → resolved → rendered → live`，并把 binding 与 observation 作为有 provenance 的 side facts 分栏；runtime effective evidence 只在 Later 以独立 evidence set 表达。
+- 共同粒度：stage record 以 `inventory snapshot + stage + target ID + logical asset ID + optional stable subresource/item ID` 为主键语义，附 asset kind、presence/state、stage revision/digest 与上游 provenance reference。物理路径、文件名、行号、config key 只作为 stage-specific evidence/ref，不替代 01B 的 logical identity。
+- Snapshot 与 authored inventory 边界：`stage inventory snapshot` 是某次本地调用的只读结果，不写回 05D source inventory、payload 或 binding registry。snapshot identity、采集边界和固定输入必须可引用；observed/inferred/unknown、采集时间与 freshness 语义由 07C 继续决定，plan 如何冻结 snapshot 由 09B 决定。
+- Stage 连续性：每个 stage record 必须引用直接上游 record/revision，或给出稳定 absent/blocked/unresolved reason。下游尚未产生不是“资产不存在”：source invalid、resolve conflict、binding block、render unsupported、live missing/unreadable 必须停在相应 stage 并保留可解释断点。
+- Bounded live discovery：live 只读取 target/adapter 声明的配置 roots、文件类型、config keys 与引用边界；具体多 root、precedence、shadow 语义由 08A 决定。边界外 host 文件、process、package、cache、history、session 与模型数据不因本轴进入全盘扫描。
+- Unmapped candidate：在受限 live/source discovery 边界内发现但无法映射 logical ID 的物理对象，可以先保留 opaque observed identity 与 stage evidence；它不自动取得 logical identity、managed classification、删除授权或 source authority。managed/unmanaged/orphan/duplicate/unknown-owner 的分类由 07B 决定。
+- 内容与敏感边界：stage inventory 保存 identity、state、revision/digest 和 provenance reference，不复制完整 payload/render/live 内容。需要精确审阅时通过按 ID diff/explain 读取允许的 stage 视图；binding、observation、work 与 secret 字段始终服从 04D、06C 的驻留和 safe-view 规则。
+- Effective 隔离：Later effective evidence 使用独立 schema/namespace，并以 target、logical asset/subresource、consumer version、probe identity 关联 v1 stage record；缺失 effective evidence 只表示 effective `not_observed/unknown`，不能否定已经由 v1 stage evidence 证明的配置一致，也不能被包装成 runtime success 或让 runtime observation 改写 source、resolved、rendered、live。
+- `Must`：source/resolved/rendered/live 四阶段；binding/observation 分栏；logical asset/subresource 粒度；直接上游 lineage；absence/block 作为显式 record；bounded discovery；live≠effective；stage snapshot 无 authority；06C safe view 与 04D residency 全程生效。
+- `Later`：DEC-11 effective evidence set、按需增加 item-level probe 与更细性能统计；只有稳定 logical identity 和明确收益时才增加粒度，不预建全 host snapshot。
+- `Out`：仅 source/live 两端清单、全磁盘/进程/package/cache 快照、原始内容复制仓、以 path/mtime/line 作为 logical identity、把 live/effective 反推为 source、把 effective 作为 v1 gate、跨机 inventory 汇总，以及因发现物理对象自动 adopt/delete。
+- 接受的代价：每个 adapter 必须同时产出 stage mapping、semantic digest 与 lineage，inventory 数量会大于两端 diff；blocked/missing 也需要显式记录。以此换取 Agent 能直接定位差异发生在哪个配置阶段，而不用把一次 live mismatch 重新人工拆成 source、binding、render 与写入四轮排查。
+- 后果：07B 必须在各 stage 上标注 ownership/classification 而不改变 identity；07C 为 observation/evidence 增加信任等级、时间与 freshness；07D 表达 bounded discovery、权限和 partial snapshot；DEC-08 固定 rendered/live mapping；DEC-09B 固定被批准 plan 使用的 stage snapshot 与 adapter versions；DEC-12A 选择要比较的 stage edges；DEC-16 通过 record ID 串起 source→live provenance，Later 再关联 DEC-11 effective evidence。
+- 验收断言：相同固定 source/binding/adapter/target 输入产生相同 source/resolved/rendered inventory；live 读取只发生在声明边界；任一 stage 缺失或阻断都有显式断点而非从报告消失；live present/parsed 不会被写成 runtime loaded/enabled；unmapped 物理对象不被自动接纳；secret/work 信息不因进入 snapshot 扩大披露或驻留范围；Later effective evidence 可关联但不能改变 v1 stage truth。
 
 ### DEC-08 Consumer 可见与渲染
 
