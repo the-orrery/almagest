@@ -63,7 +63,15 @@
 - logical asset 以 `kind + namespace + name + optional stable subresource` 标识；projection instance 以 `asset_id + target_id + consumer_slot` 标识，两者使用不同 ID 空间。
 - granularity 以“可独立声明、override、mask/remove 和审计”的最小语义资源为边界；有序项必须有显式稳定 ID，不允许使用数组下标。
 - path/root、host/OS、consumer version、layer、revision/digest 和 secret value 不进入 logical asset ID；观测事实使用独立的 target-scoped observation identity。
-- A 因位置变化造成身份漂移而拒绝；B 因复杂配置与多投影表达不足而拒绝；D 因无法表达同一资产的版本连续性而拒绝作为 logical identity。digest 是否作为 revision/完整性字段由 01C 再拍板。
+- A 因位置变化造成身份漂移而拒绝；B 因复杂配置与多投影表达不足而拒绝；D 因无法表达同一资产的版本连续性而拒绝作为 logical identity。01B 未决定 revision/完整性机制，该机制现由 01C 单独确定。
+
+## DEC-01C 拍板结果
+
+- 2026-07-16，principal 确认此前明确推荐：选择 B——不可变 revision + 类型化派生元数据，并采用 Git-backed lineage。
+- Almagest 保存 plan/apply/verify 所需的 source revision、render inputs/output、projection receipt 与 conflict evidence；Git source 的 parent/fork/merge/history 按需从 Git 查询，不复制 revision graph。
+- Git source 用 repository/commit/path 固定 source snapshot，并用 blob/tree identity 或 canonical digest 固定 asset revision；非 Git source 同样分开保存 authority/ref 与 canonical content digest。digest 只标识 revision/render 完整性，不替代 logical ID。
+- 同一 logical/revision 的不同 projection 是 copy/mirror；consumer render 通过明确的输入 revision 与 adapter/capability 元数据标识；无法由 authority/precedence 唯一裁决的同 logical ID 候选才是 conflict。
+- A 因不可复现而拒绝；C 因重复 Git 并引入版本控制责任而拒绝；D 因扩成全事件 provenance 平台而拒绝。未来只有出现脱离 Git 的多方编辑/合并需求时才重开 C。
 
 ## 验证记录
 
@@ -83,6 +91,8 @@
 | 01B 决策记录 | C 的身份空间、边界、理由、拒绝项、Must/Later/Out、后果和验收均可审计 | 通过：01B 标记 `已拍板`；logical/projection/observation identity 分开；digest 明确保留给 01C 决定，不作为 logical ID |
 | 方向审计仓级回归 | 方向修正与 01B 候选不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 01B 拍板仓级回归 | 固化 C 且不把下一轴未决方案写入正式文档后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
+| 01C 决策记录 | B 的 revision、Git 分工、派生/conflict 规则、Must/Later/Out、后果和验收均可审计 | 通过：01C 标记 `已拍板`；Almagest revision evidence 与 Git authored history 分开；C/D 的扩权责任明确拒绝 |
+| 01C 拍板仓级回归 | 固化 Git-backed revision 模型后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 
 ## 验证边界
 
@@ -92,6 +102,6 @@
 
 ## 尚未产生的证据
 
-- 01C 与 DEC-02—DEC-16 的拍板结果：后续逐项写入 `design.md`。
+- DEC-02—DEC-16 的拍板结果：后续逐项写入 `design.md`。
 - capability spec / ADR：所有相关决定稳定后再蒸馏。
 - 实现与 runtime 验证：不属于本设计阶段。
