@@ -106,8 +106,8 @@ Scenario: 只有两个 authored layer 且环境差异不取得配置权威
   Then 候选只来自 GitHub base
   And host、OS、consumer、consumer version、profile、workspace、root 与 binary path 只能参与 selector、render 或 binding 验证
   And secret、账号与本机绝对路径只能为已声明引用提供 local binding
-  And rendered artifact、live 文件、cache、session 与 unmanaged 本机文件均不能成为 authored layer
-  When principal 要接纳一个 unmanaged 本机差异
+  And rendered artifact、live 文件、cache、session、external-owned 与 unknown-owner 本机文件均不能成为 authored layer
+  When principal 要接纳一个 external-owned 或 unknown-owner 本机差异
   Then 必须显式修改拥有 authority 的 authored source 并生成新 plan
   And 不得把 live target 或任意 local 目录提升为最高优先级 override
 ```
@@ -177,7 +177,7 @@ Scenario: 两个 authority source 使用 inventory 引用原生 payload
   Then source 标记 invalid 并阻断依赖它的 resolve/apply
   When payload root 中出现未登记的候选内容
   Then 不得自动 adopt 或加入 authored candidate set
-  And 只能作为 orphan/unmanaged evidence 交给 DEC-07/09
+  And 只能作为 orphan/unknown-owner evidence 交给 DEC-07/09，除非另有正向证据证明 external-owned owner
   When Almagest 为 Windows target 建立候选
   Then 只读取 GitHub inventory 及其 payload
   And 不读取、不接收也不探测 work inventory
@@ -379,6 +379,46 @@ Scenario: 按 logical asset 盘点 source 到 live 的配置阶段
 ```
 
 ```gherkin
+Scenario: Control ownership 与 integrity 独立分类且不授予自动处置权
+  Given 07A inventory 已发现一个 source/resolved/rendered/live stage record 或 binding side-fact record
+  When Almagest 可以用当前合法 source/registry 或固定 adapter/plan/receipt evidence 证明该 record 属于受管边界
+  Then control_state 为 managed
+  And managed 只表示可进入受管 plan，不构成写入批准
+  When 正向 evidence 明确指向 consumer、vendor、plugin、package 或其它 external owner contract
+  Then control_state 可以为 external-owned
+  And 必须保存 external owner identity 与 ownership evidence reference
+  And Almagest 只能只读盘点，不得 adopt、rewrite、move、deduplicate 或 delete
+  When record 既无可验证 managed provenance，也无足够 external owner evidence
+  Then control_state 必须为 unknown-owner
+  And 不得因位于 config root、名称或内容相同、mtime、历史路径或曾被写入而猜测 owner
+  And 任何可能覆盖、移动、接纳或删除它的动作必须阻断
+  When ownership evidence 冲突、失效或无法按 07C 证明仍有效
+  Then control_state 必须回到 unknown-owner
+  And 不得默认 external-owned
+  When record 实际存在且有且仅有一个合法当前上游关系
+  Then integrity.link_state 为 linked
+  When record 实际存在但没有合法当前直接 upstream relationship
+  Then integrity.link_state 为 orphan
+  When expected record 不存在
+  Then 必须使用 07A presence=absent
+  And 不得把 missing 误标为 orphan
+  When 同一 stage/target logical identity 或声明为独占的 physical slot 有多个 claimant
+  Then integrity.cardinality_state 为 duplicate
+  And 不得自动选择 winner、shadow、merge 或删除副本
+  When 一个 record 同时为 unknown-owner、orphan 且属于 duplicate group
+  Then 三个事实必须同时保留，不得压成单一枚举
+  When external-owned、unknown-owner、orphan 或 duplicate 不与 managed desired state 冲突
+  Then 可以保持只读可见，不自动阻断整台 host
+  When target action 会覆盖或删除这些 record，依赖 duplicate winner，或发生 shadow/collision
+  Then 受影响 target action 必须阻断并向 principal 报告
+  When principal 决定接纳一个 external-owned 或 unknown-owner record
+  Then 不得直接翻转 classification flag
+  And Agent 必须先修改合法 GitHub/Mac-local source 或 host-local binding
+  And 形成新 revision 与 DEC-03D plan
+  And 重新 inventory 后只能由新 provenance 自然得到 managed
+```
+
+```gherkin
 Scenario: work 越界全链路阻断且只由 principal 决定恢复
   Given 某个 work asset、field contribution 或含 work contribution 的派生 payload
   When Almagest 即将把它写入 GitHub、Windows 或其它非授权 source、cache、resolved、rendered、plan、receipt 或 live 位置
@@ -476,7 +516,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 四个 target 的 eligible source 映射固定；Mac Codex/Qoder 为 GitHub + work，Windows Codex/Claude 为 GitHub-only，运行时条件不得静默改写或 fallback。
 - [ ] work 越界写入在物化前拒绝；既有越界阻断受影响链路并告警；Almagest 不自动恢复，只有 principal 批准的精确 recovery plan 经重新验证后才能解除。
 - [ ] work 内容和派生元数据均不离开 Mac；每台机器只由同机 Agent 当场调用同机 Almagest，不存在中央汇总、receipt 上传或跨机报告。
-- [ ] authored overlay 只有 GitHub base 与 Mac-local work 两层；host/consumer 环境差异、本机 binding、rendered/live/unmanaged 状态均不得取得 layer authority。
+- [ ] authored overlay 只有 GitHub base 与 Mac-local work 两层；host/consumer 环境差异、本机 binding、rendered/live/external-owned/unknown-owner 状态均不得取得 layer authority。
 - [ ] merge 由版本化 schema 显式区分 atomic、granular map、set、keyed list 与 ordered list；缺可信 schema fail closed，缺失稳定 ID 或无效顺序只生成 typed collision，均不做通用 deep merge。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
