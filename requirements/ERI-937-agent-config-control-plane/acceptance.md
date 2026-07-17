@@ -228,7 +228,47 @@ Scenario: 本机敏感输入按 declaration、binding、observation 三类分离
   When schema/adapter 无法证明 local-sensitive 字段的分类
   Then 返回 unknown_local_role 并阻断依赖该字段的普通 resolve/plan/apply
   And 不得按 non-secret、环境变量存在或 adapter 惯例猜测分类
-  And binding 的存放/provider/scope、脱敏与缺值恢复仍分别由 DEC-06B—06D 决定
+  And binding 的存放/provider/scope 已由 DEC-06B 固定
+  And 脱敏与缺值恢复仍分别由 DEC-06C—06D 决定
+```
+
+```gherkin
+Scenario: 每台 host 通过显式 typed registry 绑定本机值
+  Given authored source 已声明 stable typed slot、sensitivity、allowed binding scope 与 binding mode
+  And 当前 host 有一份逻辑 host-local binding registry
+  When registry 为该 slot 保存非 secret 本机值
+  Then entry 必须显式绑定 slot ID、host-wide 或 exact-target scope、fill 或 replace-ref mode
+  And value 必须通过 slot type/schema validation
+  When registry 为 secret slot 提供 binding
+  Then registry 只能保存显式 provider kind 与 provider locator
+  And secret value 的创建、轮换、撤销与存储仍由外部 credential provider 负责
+  And registry、plan、receipt 或日志是否可披露 locator/value 仍由 DEC-06C 决定
+  When 环境变量、Keychain、credential manager、本机文件或其它 provider 中存在候选值
+  But registry entry 未显式引用该 provider 与 locator
+  Then 候选值不得被自动发现、adopt 或用于 render
+  When slot 只允许 exact-target scope
+  And registry 只提供 host-wide entry
+  Then binding scope 无权满足该 slot
+  When 同一 slot/target 同时匹配多个 entry
+  Then 返回 ambiguous_binding 并阻断依赖它的普通 resolve/plan/apply
+  And 不得采用 exact-target-wins、last-writer-wins 或 provider 顺序
+  When registry 以 fill/resolve mode 绑定 slot
+  Then 只能补充空 slot 或解析既有 provider-neutral logical reference
+  When registry 以 replace-ref mode 替换 reference
+  Then source slot 必须显式声明 replaceable 且允许当前 scope
+  And replacement 只影响当前 target render，不修改 source
+  And 不得覆盖 concrete portable value、普通 authored 字段或任意配置正文
+  When operator Agent 新增、修改或删除 registry entry
+  Then 该动作必须进入绑定当前 registry revision/digest 与完整 action set 的 DEC-03D non-no-op plan
+  And principal 批准当前精确 plan 后才能写入
+  When registry revision、命中 entry 或 provider kind 变化
+  Then 旧 plan/approval 失效并重新 plan
+  When Mac 与 Windows 对同一 base slot 绑定不同本机值
+  Then authored base revision 可以保持相同
+  And 两台 host 不同步 registry、不生成跨机 binding 报告，也不创建第三 authored layer
+  When slot 零匹配、provider locator 失效或权限不足
+  Then 保持 unresolved/error evidence
+  And required/optional、诊断与恢复行为仍由 DEC-06D 决定
 ```
 
 ```gherkin

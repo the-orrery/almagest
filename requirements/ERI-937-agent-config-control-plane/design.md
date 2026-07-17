@@ -725,7 +725,7 @@ target ref = stable asset/subresource/item locator + expected target semantic di
 
 ### DEC-06 Secret 与本地参数
 
-- 状态：06A 已拍板；06B—06D 待给方案
+- 状态：06A—06B 已拍板；06C—06D 待给方案
 - 依赖：DEC-03—DEC-05。
 - 决策轴：
   - 06A：secret value/reference、本机绝对路径、账号、OS/host 参数如何分类。
@@ -735,7 +735,7 @@ target ref = stable asset/subresource/item locator + expected target semantic di
 
 #### 06A 已拍板：Portable declaration、host-local binding、observed host fact 三分类
 
-本轴只决定 secret、路径、账号与 host 差异在配置模型中属于哪类事实。它不决定 binding 的物理存储、provider、scope 与补值顺序，不预设脱敏格式，也不决定缺值后的诊断流程；这些分别留给 06B—06D。
+本轴只决定 secret、路径、账号与 host 差异在配置模型中属于哪类事实。binding 的物理存储、provider、scope 与补值顺序现由 06B 固定；脱敏格式和缺值后的诊断流程分别留给 06C—06D。
 
 | 选项 | 分类模型 | 结论 |
 |---|---|---|
@@ -769,8 +769,52 @@ observed host fact ──> selector / capability / validation evidence
 - `Later`：Agent authoring hint、从既有 consumer 配置推断候选分类、交互式 binding bootstrap；所有推断在明确采纳前都不取得 authority。
 - `Out`：secret/non-secret 二分替代 data-role 分类、任意 local overlay、按环境变量或 adapter 惯例隐式取得 authority、把当前 host observation 写回 desired source、把 secret value/绝对路径/machine ID 作为 logical asset ID，以及在 06A 预设 credential store 或 binding 文件格式。
 - 接受的代价：每个 adapter/schema 必须显式标出 local-sensitive 字段的 role，Agent 遇到旧配置或含混字段时需要先补分类而不能直接投影。以此换取“需要什么”“本机填什么”“当前观察到什么”三种事实不会互相冒充。
-- 后果：06B 必须为 declaration→binding 定义 provider、存放与合法 scope，但不能让 binding 获得 authored authority；06C 必须按三类决定 value、reference 与 observation 的披露边界；06D 必须区分 slot 缺值、provider/ref 失效与 observation 不满足。DEC-07 分栏盘点 authored/binding/observed，DEC-08 只在 target render 时消费合法 binding，DEC-09/12 区分 source drift、binding drift 与 observation/capability 变化，DEC-16 保留分类与 provenance 而不泄漏值。
+- 后果：06B 已为 declaration→binding 固定 provider、存放与合法 scope，且不让 binding 获得 authored authority；06C 必须按三类决定 value、reference 与 observation 的披露边界；06D 必须区分 slot 缺值、provider/ref 失效与 observation 不满足。DEC-07 分栏盘点 authored/binding/observed，DEC-08 只在 target render 时消费合法 binding，DEC-09/12 区分 source drift、binding drift 与 observation/capability 变化，DEC-16 保留分类与 provenance 而不泄漏值。
 - 验收断言：相同 source declaration 在不同 host 可绑定不同本机值而不改变 authored revision；secret value、绝对路径、实际账号和 machine ID 不进入 portable source；OS/权限/登录状态等 observation 不取得配置 authority；binding 不能新增或覆盖未声明字段；任何本机信息都不能因被命名为“参数”而成为第三 overlay layer；分类未知时 fail closed。
+
+#### 06B 已拍板：显式 typed host-local binding registry
+
+本轴决定 host-local binding 的受管入口、provider 边界、合法 scope 与匹配规则。registry 只把已声明 slot 绑定到当前 host 可用的非 secret 值或 provider locator；它不是第三 authored source，也不替代外部 credential provider。
+
+| 选项 | Binding 入口 | 结论 |
+|---|---|---|
+| A：Provider 直连与隐式发现 | source reference 直接约定环境变量、Keychain 名称或文件路径，不设 registry | 拒绝：依赖散落在 provider 命名和进程环境中，无法统一盘点、定 scope 或区分缺失与拼错 |
+| B：Typed binding registry + provider adapter | 每台 host 一份显式 registry，按 slot 与 scope 绑定非 secret 值或 provider locator | **已选择** |
+| C：Consumer native/live config | 从 Codex/Qoder/Claude 已有配置反向读取 binding | 拒绝：rendered/live 状态会取得 authority，形成 source→render→binding→render 的循环 |
+| D：通用 local overlay | 本机文件可覆盖任意配置字段并作为最终值 | 拒绝：重新制造第三 authored layer，绕过 05C 显式 override 与 source provenance |
+
+```text
+authored slot contract
+  slot ID / type / sensitivity / allowed scope / binding mode
+                         │
+                         ▼
+host-local typed binding registry
+  slot ID + host|exact-target scope + fill|replace-ref + local value|provider locator
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+      non-secret render input   explicit provider adapter
+                                      │
+                                      ▼
+                            external credential provider
+                              （secret value owner）
+```
+
+- 决定（v0.1，2026-07-17，approver: principal）：06B 选择 **B——每台机器一份逻辑 typed binding registry + 显式 provider adapter**。Mac 与 Windows 各自维护本机 registry，不通过 Git、Almagest 中央服务或跨机 receipt 同步；具体文件名、序列化和是否物理分片属于实现细节。
+- Registry 角色：registry 是 Almagest 可 inventory/plan/apply/verify 的 host-local managed input，但没有 authored authority。它只保存 stable slot ID、显式 target scope、binding mode、非 secret 本机值或 provider locator，以及验证所需的类型/敏感性元数据；不得保存 secret value、skill/instruction 正文或任意配置 patch。
+- Provider 边界：环境变量、OS Keychain/credential manager、本机文件或其它 provider 只有被 registry entry 显式引用时才成为 binding provider；不得扫描后自动 adopt，也不得按 slot 名猜 provider/key。secret value 的创建、轮换、撤销与存储仍由外部 credential provider 负责，Almagest 只验证 locator 与消费结果。
+- Scope 白名单：v1 只允许 `host-wide` 与 `exact-target`。source slot contract 必须显式声明允许哪些 scope；`host-wide` 只能服务当前 host 上明确允许共享的 slot，`exact-target` 必须匹配 DEC-02 的稳定 target identity。cwd、临时 session、进程环境或扫描顺序不形成额外 scope。
+- 唯一匹配：对一个 `(slot ID, target)`，合法 scope 解析后必须至多得到一个 binding candidate。多个 host/target entry 同时命中时返回 `ambiguous_binding/block`，不采用 exact-target-wins、last-writer-wins 或 provider 顺序；零匹配保持 unresolved，required/optional 与恢复行为由 06D 决定。
+- 补值与替换：默认 binding 只能 `fill` 空 slot，或把既有 provider-neutral logical reference `resolve` 为本机 locator/value。只有 source slot contract 明确声明 `replaceable` 并允许当前 scope 时，registry 才能以 `replace-ref` 为当前 target 替换逻辑 reference；它仍不得覆盖 concrete portable value、普通 authored 字段或 source 内容。
+- 变更权：operator Agent 可按 principal 指令新增、修改或删除本机 registry entry；这是受管配置写入，必须进入 DEC-03D 的精确 non-no-op plan。Almagest 不自动从 env、provider、native/live config 或 observation 反向写 registry。
+- Revision 边界：registry schema、当前 registry revision/digest、命中的 entry identity 与 provider kind 必须成为 plan/verify 输入；任何变化使旧 plan/approval 失效。plan、receipt 和日志具体能披露哪些 locator/value 信息留给 06C。
+- 驻留边界：registry 及其值、locator、存在性和 digest 全部留在当前 host；由 work declaration 派生的 binding metadata 继续继承 04D 的 Mac-only 边界。两台 host 可以对同一 base slot 绑定不同值，但不得交换 registry 或生成跨机差异报告。
+- `Must`：一台 host 一份逻辑 typed registry；slot/type/scope/mode 显式；只允许 host-wide/exact-target；唯一匹配；secret value provider-owned；registry revision 进入 plan；所有写入走 03D；binding 不能取得 authored authority。
+- `Later`：由 Agent 辅助 bootstrap registry entry、provider health probe 与 provider adapter 扩展；候选在 principal 批准本机 plan 前不得写入 registry。
+- `Out`：隐式 env/keychain/file 命名约定、provider 自动扫描/adopt、从 consumer native/live config 反向补 registry、跨机同步 registry、在 registry 保存 secret value、通用 local patch、scope precedence 和未声明的 reference replacement。
+- 接受的代价：每台机器需要独立维护 registry，并为 slot、scope、mode 和 provider locator 多保存显式元数据；同一 slot 出现多个候选时，即使可按“最具体”猜出结果也必须先处理冲突。以此换取 binding 可盘点、可计划、可验证，且 provider/live 状态不会暗中取得配置权威。
+- 后果：06C 必须对 registry value、provider locator、entry identity 与 observation 分级披露；06D 必须分别处理零匹配、ambiguous binding、dangling locator、provider 权限和 value validation。DEC-07 必须把 registry entry 与 provider observation 分栏；DEC-08 只能消费唯一合法 binding；DEC-09 固定 registry revision 与命中 entry；DEC-10 对 registry 写入提供原子性/备份/回滚；DEC-12 将 registry revision/value mismatch 视为 binding drift，而非 source overlay；DEC-16 在本机解释 slot→entry→provider→render 链路。
+- 验收断言：相同 authored slot 可在 Mac/Windows registry 中绑定不同本机值；未登记的 env/provider/live 值不会自动生效；secret value 不进入 registry；scope 未授权、多个 entry 命中或未声明 replace-ref 均阻断；registry 变更使旧 plan 失效并需要 principal 批准；registry 不跨机、不进 Git、不成为第三 authored layer。
 
 ### DEC-07 Inventory
 
