@@ -128,9 +128,38 @@ Scenario: Schema-aware merge 只组合结构兼容的贡献
   And 不得 fallback 到 recursive deep merge、array append、文件扫描顺序或文本行 merge
   When shape 不兼容、item ID 缺失/重复、order 约束无效、两个贡献命中同一 atomic leaf 或出现 remove/mask
   Then 只产生带候选与 provenance 的 typed collision
-  And 由 DEC-05C 决定 winner、删除语义或必须阻断的 conflict
+  And typed collision 必须继续满足 DEC-05C 的等价去重、显式意图或阻断规则
   When merge schema version、stable key 或 ordering 规则变化
   Then 旧 plan 与 approval 失效，并要求基于新 schema 重新 plan
+```
+
+```gherkin
+Scenario: 非等价 overlay 必须显式声明 override 或 mask
+  Given GitHub base 与 Mac-local work 均通过 authority、residency 与 target eligibility 检查
+  And adapter schema 与 source revision 已固定
+  When 两层贡献命中新 logical ID、不同 granular key 或不同 stable item ID
+  Then Almagest 按 DEC-05B 的 shape 自动组合并保留逐贡献 provenance
+  When eligible contribution 命中同一 semantic target 且 canonical value 等价
+  Then resolved state 只保留一个值并标记 equivalent_duplicate
+  And explain 保留所有重复贡献的 source 与 layer provenance
+  When 两层命中同一 semantic target、内容不等价且 work 未声明合法 override 或 mask
+  Then resolve 返回结构化 conflict，普通 plan/apply 零写入
+  And 不得因 base→work 顺序自动选择 work
+  When work 对该 semantic target 显式声明无歧义的 override
+  Then 只替换该 eligible target，并把 intent、base 与 work provenance 纳入 resolved evidence
+  When work 对该 semantic target 显式声明无歧义的 mask
+  Then 该 target 只从匹配的 Mac resolved state 隐藏
+  And GitHub base 与 Windows base-only resolved state 保持不变
+  When override/mask 未指明目标、目标歧义、多个意图竞争或 shape/顺序规则无法解析
+  Then resolve 阻断并返回稳定诊断码、候选、路径、digest 与 provenance
+  When principal 只裁决当前一次 conflict
+  Then 必须走 DEC-03B1 transient resolution，source 保持不变且下次重新阻断
+  When principal 明确要求修 source
+  Then operator Agent 才生成 override、mask、remove 或其它 source diff，形成新 revision 并重新 plan
+  And 所有非 no-op 写入仍必须取得 DEC-03D 对当前精确 plan 的批准
+  When collision 同时违反 authority、eligibility、residency、egress、secret 或 capability hard policy
+  Then hard policy block 优先，DEC-05C、DEC-03B1 与普通 approval 均不能放行
+  And target reference 是否绑定 expected revision/digest 不在本场景预设，由 DEC-05D 决定
 ```
 
 ```gherkin
