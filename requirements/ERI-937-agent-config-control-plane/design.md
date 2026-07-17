@@ -725,7 +725,7 @@ target ref = stable asset/subresource/item locator + expected target semantic di
 
 ### DEC-06 Secret 与本地参数
 
-- 状态：06A—06C 已拍板；06D 待给方案
+- 状态：06A—06D 已拍板
 - 依赖：DEC-03—DEC-05。
 - 决策轴：
   - 06A：secret value/reference、本机绝对路径、账号、OS/host 参数如何分类。
@@ -735,7 +735,7 @@ target ref = stable asset/subresource/item locator + expected target semantic di
 
 #### 06A 已拍板：Portable declaration、host-local binding、observed host fact 三分类
 
-本轴只决定 secret、路径、账号与 host 差异在配置模型中属于哪类事实。binding 的物理存储、provider、scope 与补值顺序现由 06B 固定，安全披露由 06C 固定；缺值后的诊断流程留给 06D。
+本轴只决定 secret、路径、账号与 host 差异在配置模型中属于哪类事实。binding 的物理存储、provider、scope 与补值顺序现由 06B 固定，安全披露由 06C 固定，缺值后的诊断与恢复由 06D 固定。
 
 | 选项 | 分类模型 | 结论 |
 |---|---|---|
@@ -764,12 +764,12 @@ observed host fact ──> selector / capability / validation evidence
 - 同名不同阶段：同一概念必须按表示逐项分类。例如“所需账号角色/逻辑引用”是 portable declaration，“本机选中的账号/profile”是 host-local binding，“当前是否登录及权限是否有效”是 observed fact；“路径 slot”是 declaration，“解析后的绝对路径”是 binding，“路径是否存在/可访问”是 observation。
 - Authority 边界：只有 portable declaration/reference 可以形成 authored contribution；host-local binding 只能满足 schema 已声明且允许本机补值的 slot，不能新增 asset、改变逻辑引用语义、覆盖普通 authored 字段或绕过 source trust/work residency。observed fact 更不能反向写成 source 或 binding。
 - Layer 边界：三分类是 data-role model，不是三层 overlay。authored layer 仍只有 DEC-05A 的 GitHub base 与 Mac-local work；binding 和 observation 都不取得 precedence、override、mask、remove 或 conflict winner 权力。
-- 未知分类：schema/adapter 无法证明某个 local-sensitive 字段属于哪一类时，不得按 non-secret、local default 或 adapter 惯例猜测；该字段标记 `unknown_local_role/block`。具体诊断内容与恢复出口留给 06D。
+- 未知分类：schema/adapter 无法证明某个 local-sensitive 字段属于哪一类时，不得按 non-secret、local default 或 adapter 惯例猜测；该字段标记 `unknown_local_role/block`，并按 06D 返回安全诊断与显式修复选项。
 - `Must`：所有 local-sensitive schema 字段可被确定地归入三类之一；reference 与 value 分离；binding 只能填充现有 typed slot；observation 保持只读；secret value 不进入 authored source；binding/observation 不形成第三 authored layer。
 - `Later`：Agent authoring hint、从既有 consumer 配置推断候选分类、交互式 binding bootstrap；所有推断在明确采纳前都不取得 authority。
 - `Out`：secret/non-secret 二分替代 data-role 分类、任意 local overlay、按环境变量或 adapter 惯例隐式取得 authority、把当前 host observation 写回 desired source、把 secret value/绝对路径/machine ID 作为 logical asset ID，以及在 06A 预设 credential store 或 binding 文件格式。
 - 接受的代价：每个 adapter/schema 必须显式标出 local-sensitive 字段的 role，Agent 遇到旧配置或含混字段时需要先补分类而不能直接投影。以此换取“需要什么”“本机填什么”“当前观察到什么”三种事实不会互相冒充。
-- 后果：06B 已为 declaration→binding 固定 provider、存放与合法 scope，且不让 binding 获得 authored authority；06C 已按三类固定 value、reference 与 observation 的安全披露边界；06D 必须区分 slot 缺值、provider/ref 失效与 observation 不满足。DEC-07 分栏盘点 authored/binding/observed，DEC-08 只在 target render 时消费合法 binding，DEC-09/12 区分 source drift、binding drift 与 observation/capability 变化，DEC-16 保留分类与 provenance 而不泄漏值。
+- 后果：06B 已为 declaration→binding 固定 provider、存放与合法 scope，且不让 binding 获得 authored authority；06C 已按三类固定 value、reference 与 observation 的安全披露边界；06D 已区分 slot 缺值、provider/ref 失效与 observation 不满足，并禁止自动 fallback。DEC-07 分栏盘点 authored/binding/observed，DEC-08 只在 target render 时消费合法 binding，DEC-09/12 区分 source drift、binding drift 与 observation/capability 变化，DEC-16 保留分类与 provenance 而不泄漏值。
 - 验收断言：相同 source declaration 在不同 host 可绑定不同本机值而不改变 authored revision；secret value、绝对路径、实际账号和 machine ID 不进入 portable source；OS/权限/登录状态等 observation 不取得配置 authority；binding 不能新增或覆盖未声明字段；任何本机信息都不能因被命名为“参数”而成为第三 overlay layer；分类未知时 fail closed。
 
 #### 06B 已拍板：显式 typed host-local binding registry
@@ -804,7 +804,7 @@ host-local typed binding registry
 - Registry 角色：registry 是 Almagest 可 inventory/plan/apply/verify 的 host-local managed input，但没有 authored authority。它只保存 stable slot ID、显式 target scope、binding mode、非 secret 本机值或 provider locator，以及验证所需的类型/敏感性元数据；不得保存 secret value、skill/instruction 正文或任意配置 patch。
 - Provider 边界：环境变量、OS Keychain/credential manager、本机文件或其它 provider 只有被 registry entry 显式引用时才成为 binding provider；不得扫描后自动 adopt，也不得按 slot 名猜 provider/key。secret value 的创建、轮换、撤销与存储仍由外部 credential provider 负责，Almagest 只验证 locator 与消费结果。
 - Scope 白名单：v1 只允许 `host-wide` 与 `exact-target`。source slot contract 必须显式声明允许哪些 scope；`host-wide` 只能服务当前 host 上明确允许共享的 slot，`exact-target` 必须匹配 DEC-02 的稳定 target identity。cwd、临时 session、进程环境或扫描顺序不形成额外 scope。
-- 唯一匹配：对一个 `(slot ID, target)`，合法 scope 解析后必须至多得到一个 binding candidate。多个 host/target entry 同时命中时返回 `ambiguous_binding/block`，不采用 exact-target-wins、last-writer-wins 或 provider 顺序；零匹配保持 unresolved，required/optional 与恢复行为由 06D 决定。
+- 唯一匹配：对一个 `(slot ID, target)`，合法 scope 解析后必须至多得到一个 binding candidate。多个 host/target entry 同时命中时返回 `ambiguous_binding/block`，不采用 exact-target-wins、last-writer-wins 或 provider 顺序；零匹配保持 unresolved，并按 06D 区分 required block 与显式 optional omission。
 - 补值与替换：默认 binding 只能 `fill` 空 slot，或把既有 provider-neutral logical reference `resolve` 为本机 locator/value。只有 source slot contract 明确声明 `replaceable` 并允许当前 scope 时，registry 才能以 `replace-ref` 为当前 target 替换逻辑 reference；它仍不得覆盖 concrete portable value、普通 authored 字段或 source 内容。
 - 变更权：operator Agent 可按 principal 指令新增、修改或删除本机 registry entry；这是受管配置写入，必须进入 DEC-03D 的精确 non-no-op plan。Almagest 不自动从 env、provider、native/live config 或 observation 反向写 registry。
 - Revision 边界：registry schema、当前 registry revision/digest、命中的 entry identity 与 provider kind 必须成为 plan/verify 输入；任何变化使旧 plan/approval 失效。plan、receipt、日志和错误只能按 06C 的 safe view 披露这些信息。
@@ -813,7 +813,7 @@ host-local typed binding registry
 - `Later`：由 Agent 辅助 bootstrap registry entry、provider health probe 与 provider adapter 扩展；候选在 principal 批准本机 plan 前不得写入 registry。
 - `Out`：隐式 env/keychain/file 命名约定、provider 自动扫描/adopt、从 consumer native/live config 反向补 registry、跨机同步 registry、在 registry 保存 secret value、通用 local patch、scope precedence 和未声明的 reference replacement。
 - 接受的代价：每台机器需要独立维护 registry，并为 slot、scope、mode 和 provider locator 多保存显式元数据；同一 slot 出现多个候选时，即使可按“最具体”猜出结果也必须先处理冲突。以此换取 binding 可盘点、可计划、可验证，且 provider/live 状态不会暗中取得配置权威。
-- 后果：06C 已对 registry value、provider locator、entry identity 与 observation 固定分级披露；06D 必须分别处理零匹配、ambiguous binding、dangling locator、provider 权限和 value validation。DEC-07 必须把 registry entry 与 provider observation 分栏；DEC-08 只能消费唯一合法 binding；DEC-09 固定 registry revision 与命中 entry；DEC-10 对 registry 写入提供原子性/备份/回滚；DEC-12 将 registry revision/value mismatch 视为 binding drift，而非 source overlay；DEC-16 在本机解释 slot→entry→provider→render 链路。
+- 后果：06C 已对 registry value、provider locator、entry identity 与 observation 固定分级披露；06D 已分别固定零匹配、ambiguous binding、dangling locator、provider 权限和 value validation 的阻断、诊断与恢复合同。DEC-07 必须把 registry entry 与 provider observation 分栏；DEC-08 只能消费唯一合法 binding；DEC-09 固定 registry revision 与命中 entry；DEC-10 对 registry 写入提供原子性/备份/回滚；DEC-12 将 registry revision/value mismatch 视为 binding drift，而非 source overlay；DEC-16 在本机解释 slot→entry→provider→render 链路。
 - 验收断言：相同 authored slot 可在 Mac/Windows registry 中绑定不同本机值；未登记的 env/provider/live 值不会自动生效；secret value 不进入 registry；scope 未授权、多个 entry 命中或未声明 replace-ref 均阻断；registry 变更使旧 plan 失效并需要 principal 批准；registry 不跨机、不进 Git、不成为第三 authored layer。
 
 #### 06C 已拍板：Schema-driven、per-surface safe view
@@ -859,8 +859,66 @@ secret value ──X──> reportable object / hash / fingerprint / raw error
 - `Later`：更多细粒度 sensitivity class、provider-specific safe metadata 和受控 explain ergonomics；不得降低 secret 永不序列化或 unknown fail-closed 基线。
 - `Out`：regex/key-name 作为主防线、serialize-then-scrub、secret hash/fingerprint、完整本地 debug dump、raw stdout/stderr/exception 透传、全局 reveal 开关、持久 reveal grant、以加密日志或“仅本机”替代 safe view，以及把 consumer secret render 混入 report surface。
 - 接受的代价：schema/adapter 要维护 sensitivity 与多套 surface DTO，排障时默认看不到本机值，provider 集成也不能直接复用原始错误文本；需要额外的 safe diagnostic 和单字段 explain 流程。以此换取 Agent 操作、日志和失败路径不会成为绕开 registry/provider 边界的 secret 出口。
-- 后果：06D 的所有错误状态和 resolution action 必须能在 safe diagnostic 中表达而不依赖原值；DEC-07 inventory 只能保存允许的 binding/observation metadata；DEC-09 plan/approval 使用 safe diff；DEC-10 receipt/rollback evidence 不保存 secret/local-sensitive value；DEC-12 drift 依赖 registry/provider revision 与状态而非 secret digest；DEC-15 为每类 surface 和 provider error 维护 secret-canary 负向 fixture；DEC-16 explain/audit 复用相同 safe projection。
+- 后果：06D 已将所有错误状态和 resolution action 固定为不依赖原值的 safe diagnostic；DEC-07 inventory 只能保存允许的 binding/observation metadata；DEC-09 plan/approval 使用 safe diff；DEC-10 receipt/rollback evidence 不保存 secret/local-sensitive value；DEC-12 drift 依赖 registry/provider revision 与状态而非 secret digest；DEC-15 为每类 surface 和 provider error 维护 secret-canary 负向 fixture；DEC-16 explain/audit 复用相同 safe projection。
 - 验收断言：向任意 secret slot 注入 canary 后，plan/diff/receipt/log/error/trace/explain 均无 canary 或其 hash；portable-safe 字段仍可获得精确 diff；local-sensitive 默认只返回结构化 redaction marker，单次定向 reveal 只能显示获批的 non-secret 字段；unknown sensitivity 阻断；provider 原始错误中的 secret 不会透传；不同 surface 不因复用同一对象扩大披露。
+
+#### 06D 已拍板：类型化 fail-closed、显式修复选项、principal 现场决策
+
+本轴决定 binding 解析、provider 访问、值校验或 host observation 失败后，Almagest 是否继续，以及 operator Agent 应拿到什么。错误不会触发自动猜测或修复；Almagest 返回遵守 06C 的机器可读诊断和有限 resolution action，由 principal 在当前操作中选择。
+
+| 选项 | 失败与恢复策略 | 结论 |
+|---|---|---|
+| A：所有异常统一 hard block | required、optional 与任一 observation 失败均阻断当前 target，不区分失败语义 | 拒绝：实现简单，但 optional 失去语义，也不能表达可安全省略与必须修复的区别 |
+| B：类型化 fail-closed + 显式 resolution action | 按失败类型阻断受影响 target；只有 schema 证明可安全省略的 optional slot 可显式 omission；principal 现场决定修复 | **已选择** |
+| C：自动 fallback / skip | 自动尝试 env、其它 provider、默认值或跳过失败字段，再向 principal 报告 | 拒绝：让隐式候选重新取得 authority，且报告发生在配置已经偏离之后 |
+| D：last-known-good / cache | provider 或 binding 暂不可用时复用旧值继续 | 拒绝：旧值可能已撤销、失效或越权，secret cache 还会扩大生命周期与泄漏面 |
+
+| Diagnostic code | 语义 | 当前操作结果 | 允许提供的 resolution action |
+|---|---|---|---|
+| `missing_required_binding` | required slot 无合法唯一 binding | 阻断依赖该 slot 的 target resolve/render/apply | `create_binding`、`change_source_requirement`、`retry` |
+| `missing_optional_binding` | optional slot 无 binding | 仅当 source 明确 optional 且 adapter/schema 定义 deterministic safe omission 时生成 `optional_omitted`；否则按 required block | `accept_optional_omission`、`create_binding`、`change_source_requirement` |
+| `ambiguous_binding` | 同一 slot/target 命中多个合法候选 | 阻断，不猜 scope/provider precedence | `edit_binding_scope`、`remove_binding`、`retry` |
+| `dangling_locator` | registry 引用的 provider locator 不存在或不可解析 | 阻断 | `update_locator`、`repair_provider_entry`、`retry` |
+| `permission_denied` / `auth_unavailable` | provider、路径或账号不可访问 | 阻断 | `repair_permission_or_login`、`change_binding`、`retry` |
+| `invalid_binding_value` | value 不满足声明的 type/constraint | 阻断 | `update_binding`、`change_source_constraint`、`retry` |
+| `observation_unsatisfied` | OS、consumer capability、路径或其它 required observation 不满足 | 阻断受影响 target | `repair_host_condition`、`change_source_requirement`、`retry` |
+| `provider_unavailable` | 显式 provider 当前不可用，且不能证明只是安全的 optional omission | 阻断，不使用 cache | `repair_provider`、`change_binding`、`retry` |
+| `unknown_local_role` / `unknown_sensitivity` | schema 无法确定 role 或安全披露等级 | 阻断 | `fix_schema_or_adapter`、`retry` |
+
+```text
+resolve / provider / validate / observe
+                    │
+                    ▼
+          typed safe diagnostic
+          code + target/slot ID
+          impact + safe evidence
+          resolution action kinds
+                    │
+                    ▼
+        operator Agent 向 principal 报告
+                    │
+          principal 选择精确动作
+                    ▼
+     正常 authority / plan / approval 流程
+                    │
+                    ▼
+             重新 resolve + validate
+```
+
+- 决定（v0.1，2026-07-17，approver: principal）：06D 选择 **B——类型化 fail-closed + 显式 resolution action + principal 现场决策**。Almagest 只裁定状态、影响边界与合法动作类型；operator Agent 负责解释并按 principal 指令进入已有 source、registry 或外部 provider 修复流程。
+- 阻断粒度：required 缺值、ambiguous、dangling locator、权限/登录失败、invalid value、required observation 不满足、provider unavailable 与未知分类，只阻断依赖该失败的 target resolve/render/apply；当前 host 上不依赖它的只读 inventory、diff、explain 和健康 target 仍可继续。多 target plan/apply 的部分执行边界留给 DEC-09/10，06D 不授权绕过被阻断 target。
+- Optional 唯一降级：只有 portable source 已显式声明 `optional`，且固定 adapter/schema 定义“省略该字段不会产生含混语义或不安全 consumer default”时，零匹配才能成为 `optional_omitted`。该 omission 必须在 plan 中逐项可见并由 principal 随精确 plan 批准；缺少任一证明时按 `missing_required_binding/block` 处理。
+- Safe diagnostic：每条诊断至少含 stable diagnostic ID/code、target ID、slot/entry opaque ID、失败阶段、block/omitted 状态、影响范围、固定输入 revision evidence 与 allowlisted resolution action kind；不得包含 secret、provider locator、本机路径、账号或原始 provider error。具体字段编码归 DEC-09A，披露始终服从 06C。
+- Resolution authority：action 是给 operator Agent 与 principal 的受限菜单，不是自动执行授权。修改 GitHub/Mac-local source、host-local registry 或其它受管配置必须形成新的 DEC-03D non-no-op plan；修复外部 credential provider、权限或登录由对应 owner/tool 完成。任何修复后都必须重新读取 observation、resolve、validate 并生成新 plan，旧 failure evidence、plan 与 approval 不可复用。
+- `retry` 语义：retry 只在 principal 或 operator Agent 已知外部条件可能变化后重新读取固定入口，不得扫描新 provider、换 locator、采用环境变量、复用旧 secret/value 或改变 requirement；输入 revision 变化仍使旧 plan 失效。
+- Acknowledgment 边界：acknowledge、普通 approval、一次性 reveal 或“本机可用”声明都不能把 blocker 变成 success。解除阻断必须由修复后的新 evidence 证明原 failure 已消失；02C 的 unsupported-target exception 不能覆盖 secret/binding/provider 的 authority、安全或 residency 边界。
+- 聚合诊断：一次本地调用应返回当前 target 上所有能够在不跨越安全边界的独立 blocker/omission，避免 Agent 修一个才发现下一个；探测过程中遇到 unsafe/unknown 边界时停止该分支并报告对应 blocker，不为收集更多错误读取未授权值。
+- `Must`：稳定 failure taxonomy；required fail closed；optional omission 必须 source+schema 双重显式；affected-target 阻断；safe diagnostic + bounded resolution actions；principal 现场选择；修复后重新验证与重新 plan；无自动 fallback/cache/silent skip。
+- `Later`：provider-specific remediation hint、在不泄漏值的前提下聚合依赖图与批量修复 plan；不得把 hint 升格为自动 authority。
+- `Out`：自动 provider discovery/fallback、隐式 env/default、silent optional skip、last-known-good、secret cache、失败后先 apply 再报告、persistent acknowledgment、用 reveal/approval 绕过 blocker、自动修改 required→optional，以及 Almagest 自行吸收或轮换外部 credential。
+- 接受的代价：短暂 provider/权限故障也会停止受影响 target，Agent 与 principal 需要现场选择修复动作；schema 还必须明确 optional omission 的安全语义。以此换取任何继续运行的降级都是 source 已声明、schema 可证明、plan 可见且 principal 已批准的结果。
+- 后果：DEC-07 必须把 unresolved、blocked、optional_omitted 与 observed failure 分栏；DEC-08 只能 render resolved 或获批 optional omission；DEC-09A 固定 diagnostic/action schema 与 block-only plan，DEC-09D 绑定 principal approval 和输入 revision；DEC-10 禁止被阻断 target 写入并在修复后重新验证；DEC-12 把持续/新发生的 failure 作为本机 drift signal；DEC-16 按 diagnostic ID 解释 failure→impact→resolution chain。
+- 验收断言：required binding 缺失、ambiguous、dangling、权限拒绝、invalid value、provider unavailable 或未知分类时，受影响 target 零写入且返回安全 typed diagnostic；optional 只有在 source/schema 双重允许时才显式 omission；Almagest 不自动采用 env/其它 provider/cache/default；principal 选择修复后必须通过正常 authority/plan 流程并重新验证，单纯 acknowledgment 不能解除阻断。
 
 ### DEC-07 Inventory
 

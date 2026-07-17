@@ -229,7 +229,7 @@ Scenario: 本机敏感输入按 declaration、binding、observation 三类分离
   Then 返回 unknown_local_role 并阻断依赖该字段的普通 resolve/plan/apply
   And 不得按 non-secret、环境变量存在或 adapter 惯例猜测分类
   And binding 的存放/provider/scope 已由 DEC-06B 固定
-  And 脱敏与缺值恢复仍分别由 DEC-06C—06D 决定
+  And 脱敏与缺值恢复必须分别遵守 DEC-06C—06D
 ```
 
 ```gherkin
@@ -268,7 +268,7 @@ Scenario: 每台 host 通过显式 typed registry 绑定本机值
   And 两台 host 不同步 registry、不生成跨机 binding 报告，也不创建第三 authored layer
   When slot 零匹配、provider locator 失效或权限不足
   Then 保持 unresolved/error evidence
-  And required/optional、诊断与恢复行为仍由 DEC-06D 决定
+  And required/optional、诊断与恢复行为必须遵守 DEC-06D
 ```
 
 ```gherkin
@@ -308,6 +308,41 @@ Scenario: 所有 report surface 从 schema 生成最小安全视图
   When consumer render/live 需要实际 secret material
   Then 该投影与写入不属于 report surface
   And 其安全合同仍由 DEC-08/10 决定
+```
+
+```gherkin
+Scenario: 本机参数失败时类型化阻断并由 principal 现场决定修复
+  Given Almagest 正在为当前 host 上一个 target 解析 typed slot、provider 或 required observation
+  When required slot 零匹配
+  Then 返回 missing_required_binding/block
+  And 阻断依赖该 slot 的 target resolve、render 与 apply
+  When 同一 slot/target 命中多个 binding
+  Then 返回 ambiguous_binding/block
+  And 不得猜测 scope precedence、provider order 或 last-writer
+  When provider locator 失效、权限/登录不可用、value validation 失败、provider unavailable 或 required observation 不满足
+  Then 分别返回稳定 typed diagnostic code 并阻断受影响 target
+  And 不得采用环境变量、其它 provider、consumer live value、默认值、cache 或 last-known-good
+  When source 将 slot 明确声明为 optional
+  And 固定 adapter/schema 明确定义 deterministic safe omission
+  Then 零匹配可以生成 optional_omitted
+  And omission 必须逐项进入精确 plan 并由 principal 批准
+  When source 未声明 optional 或 schema 无法证明 omission 安全
+  Then 必须按 missing_required_binding/block 处理
+  When Almagest 向 operator Agent 返回 failure 或 omission
+  Then safe diagnostic 至少包含 stable diagnostic ID/code、target ID、slot/entry opaque ID、失败阶段、影响范围、固定输入 evidence 与 allowlisted resolution action kind
+  And 所有字段必须遵守 DEC-06C，不得包含 secret、provider locator、本机路径、账号或 raw provider error
+  And 同一次调用应返回不跨越安全边界即可确定的全部独立 blocker/omission
+  When diagnostic 提供 create/update binding、修复 provider/权限、修改 source requirement 或 retry 等 resolution action
+  Then action 只是供 operator Agent 向 principal 解释的受限选项，不构成执行授权
+  And Almagest 不得自动执行、自动修 source、自动改 required 为 optional 或静默跳过
+  When principal 选择一个精确修复动作
+  Then 受管配置修改必须进入 DEC-03D 新 non-no-op plan
+  And 外部 provider/权限修复必须由其 owner/tool 完成
+  And 修复后必须重新读取 observation、resolve、validate 并生成新 plan
+  And 旧 failure evidence、plan、approval、普通 acknowledgment 或 reveal 不得解除阻断
+  When blocker 只影响一个 target
+  Then 不依赖该 blocker 的只读 inventory、diff、explain 与健康 target 可以继续
+  And 被阻断 target 必须保持零写入
 ```
 
 ```gherkin
