@@ -277,7 +277,7 @@ Principal（目标、歧义裁决、高风险批准）
 - `Must`：所有 plan 同时固定 source snapshot ref 与不可变 asset revision；所有 render/projection 可追溯到精确输入、adapter/capability 版本和输出 digest；Git source 可按 snapshot ref 查询 authored history；非 Git source 不得伪造 parent/fork/merge。
 - `Later`：若未来确有脱离 Git 的多方编辑、三方合并或长期 fork 管理需求，再重开本项评估 C；当前不预建 lineage graph。
 - `Out`：在 Almagest 内实现通用 branch、merge、rebase、历史垃圾回收或全事件 provenance 平台；把 Git commit/digest 当作 logical asset ID；在 portable plan/receipt 中保存 secret value 或其可关联 digest。
-- 后果：DEC-03 必须定义 source authority、Git/non-Git revision 的信任与浮动 ref policy；DEC-05/08 必须输出确定的 resolved/render input set；DEC-09/10/12/16 必须使用获批 revision 与 receipt 做 plan 等价、apply、drift 和 explain。dirty source、secret/local binding fingerprint 与历史不可用时的具体处理分别留给 DEC-03、DEC-06 和 DEC-09。
+- 后果：DEC-03 必须定义 owned source authority 与 revision 可信性；外部候选的发现、拉取、评审和吸收不进入 Almagest。DEC-05/08 必须输出确定的 resolved/render input set；DEC-09/10/12/16 必须使用获批 revision 与 receipt 做 plan 等价、apply、drift 和 explain。dirty source、secret/local binding fingerprint 与历史不可用时的具体处理分别留给 DEC-03、DEC-06 和 DEC-09。
 - 验收断言：获批 plan 能固定全部 source revision、adapter/capability 输入和预期 render；相同 logical asset 的内容更新不会变成新资产；相同内容的无关资产不会因 digest 相同被合并；Git 历史不可用时仍可依 receipt 校验本次 revision，但不得声称已验证 ancestry；任何 conflict 都指出 competing candidates、authority/precedence 和停止原因。
 
 ### DEC-02 目标拓扑与隔离能力
@@ -331,15 +331,15 @@ Principal（目标、歧义裁决、高风险批准）
 
 ### DEC-03 权威来源与信任
 
-- 状态：03A、03B1、03B2 已拍板；03C、03D 待给方案
+- 状态：03A v0.2、03B1、03B2、03C 已拍板；03D 待给方案
 - 依赖：DEC-01、DEC-02。
 - 决策轴：
-  - 03A：GitHub personal/shared、Mac-local work、host-local binding、外部 registry 与派生目录各自能声明什么，ownership 如何分配。
+  - 03A：GitHub personal/shared、Mac-local work、host-local binding 与派生目录各自能声明什么，ownership 如何分配；外部 registry/upstream 是否构成 Almagest source class。
   - 03B1：多个已获 authority 的候选仍无法由确定规则裁决时，如何输出结构化 conflict artifact、取得 principal 决定并决定该裁决的生效范围。
   - 03B2：检测到 cache、resolved、rendered 或 live 反向污染 source 后，是否自动隔离/恢复，以及如何阻断、取证和取得 principal 决定。污染证据类型、置信度和 freshness 合同由 DEC-07/16 细化。
-  - 03C：外部 source、浮动 revision、签名/digest、allowlist 和更新策略如何受信。
+  - 03C：外部候选的发现、检查、拉取、评审、吸收和周期调度是否属于 Almagest；吸收后的 owned revision 如何进入正常配置闭环。
   - 03D：skill、hook、MCP 等可执行或可调用内容如何分级风险并获批。
-- 初步验收：每个 resolved field/contribution 能追溯到允许的 authority；最终裁决与输入 revision/digest 不可歧义；临时裁决不冒充稳定一致；不可信输入 fail closed。
+- 初步验收：每个 resolved field/contribution 能追溯到允许的 owned authority；外部候选在吸收前对 desired state 零权威；最终裁决与输入 revision/digest 不可歧义；临时裁决不冒充稳定一致；不可信输入 fail closed。
 
 #### 03A 已拍板：按 source 类型固定 ownership
 
@@ -351,23 +351,24 @@ Principal（目标、歧义裁决、高风险批准）
 | D：多 authority / last writer wins | GitHub、work、registry 与 live 均可改 desired state，以最后写入或最高版本为准 | 拒绝：无法区分有意修改与漂移，也无法稳定复现 |
 
 - 决定（v0.1，2026-07-16，approver: principal）：03A 选择 **B——按 source 类型固定 ownership**。authority 表示某个 source class 有权声明哪类 authored intent 或内容；它不等于 overlay precedence。多个合法声明如何组合、override 或 mask 仍由 DEC-03B/05 决定。
+- 修订（v0.2，2026-07-17，approver: principal）：保留 B 与固定 ownership 模型，但撤销 v0.1 中 `External registry/upstream` 作为 Almagest source class 的结论。Almagest 的 authority 只来自已归入 owned source 的 authored revision；外部 registry/upstream 只是控制面外的候选提供方，对 desired state 与 resolved content 均无 authority。
 
 | Source class | 拥有的 authority | 明确不拥有 |
 |---|---|---|
-| GitHub personal/shared base | 两机共享的可移植 desired declaration；外部 package 的采用、目标选择、启用状态与版本/ref 声明 | work-only payload、host secret value、本机路径值 |
-| Mac-local work | work-only authored asset 与 work-specific delta 的声明 | 向 Windows 投影的资格、GitHub base 的所有权、host secret value |
+| GitHub personal/shared base | 两机共享的可移植 desired declaration；已吸收为自有资产的共享内容；consumer 配置自身需要的 package/ref/version 字段 | work-only payload、host secret value、本机路径值；尚未吸收的外部候选 |
+| Mac-local work | work-only authored asset、work-specific delta 与已吸收为自有资产的 work-only 内容 | 向 Windows 投影的资格、GitHub base 的所有权、host secret value；尚未吸收的外部候选 |
 | Host-local binding | 受 schema 允许的机器路径、账号/credential reference、本地 endpoint 与其它本机绑定值 | skill/instruction/hook/plugin 等可移植逻辑正文；任意绕过 portable/work source 的配置重定义 |
-| External registry/upstream | 被选择 revision 对应的上游 package 内容与发布元数据 | 本地是否采用、启用、升级或投影到哪个 target；本地 policy |
 | Resolved/rendered/cache/live | 无 authored authority；只保存派生结果、观测或 evidence | 反向成为 desired state，或以 live 修改自动覆盖 source |
 
-- 采用权与内容权分离：GitHub base 或 Mac-local work 声明“采用哪个外部内容、给哪些 target 使用”；registry/upstream 只提供该 revision 的内容。外部 source 的锁定、签名、digest、allowlist 与更新方式仍由 03C 决定，本项不预判信任机制。
+- 外部边界：外部工具完成候选发现、检查、拉取、校验、评审与吸收；只有吸收进 GitHub personal/shared 或 Mac-local work 并形成 authored revision 后，内容才进入 Almagest。owned source 可以保留 upstream locator/revision/digest、吸收时间等 provenance；外部周期工具也可以读取 owned source revision/time 与这些元数据作为检查水位，但它们只是惰性元数据，不参与 authority、resolve 或自动更新。
+- 配置值边界：若 consumer 的 user-authored plugin/extension 配置本身需要 registry、ref 或 version constraint，这些值仍可作为普通 desired data 管理和投影；Almagest 不据此下载 package，也不把所指 registry 内容变成 source。实际 package 安装版本继续只作为 DEC-01A 已确认的绑定/依赖事实观测。
 - scope enforcement：每个 source 必须声明稳定 `source_id`、`source_class` 与 `authority_scope`。source 在 scope 外声明内容属于 authority violation，进入 plan 时直接阻断；不得把它降格成普通低优先级候选，也不得通过 DEC-02C break-glass 放行。
 - overlap 边界：work source 可以声明 work-only asset 和允许的 work delta，但本项不决定它能否覆盖、删除或拼接 GitHub base 的具体字段；host-local 只能填入已授权的本机 binding slot。字段级冲突裁决、merge algebra 和本机值边界分别留给 03B1、05、06。
-- `Must`：固定 source-class ownership matrix；所有 source 与声明可审计归类；外部 package 的本地采用权与上游内容权分离；派生/live 状态无 authority；越权声明 fail closed。
+- `Must`：固定 owned source-class ownership matrix；所有 source 与声明可审计归类；外部候选吸收前零 authority；吸收后只以 owned revision 进入配置闭环；外部 provenance 不影响 resolve；派生/live 状态无 authority；越权声明 fail closed。
 - `Later`：若未来出现多个团队独立维护同一 source class，再评估 namespace/team delegation；当前不预建通用组织级 authority service。
-- `Out`：GitHub-only 伪单一真相、逐 asset 任意 authority、多主/last-writer-wins、自动 adopt live drift、让 registry 更新直接改变本地 desired state。
-- 后果：03B1 只在已获 authority 且确定规则仍无法裁决的候选之间定义临时裁决；03B2 定义派生物反向污染后的处置，污染 evidence 合同由 07/16 细化；03C 定义 external source/revision 的信任与更新；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
-- 验收断言：每个 resolved asset/field 都能追溯到允许其声明的 source class；registry 发布新版本不会自动改变本地采用或启用状态；手改 live target 被报告为 drift 而不是新 source；GitHub base 出现 work-only payload、host-local 重写可移植逻辑或任意派生目录反向声明 desired state 时均阻断。
+- `Out`：GitHub-only 伪单一真相、逐 asset 任意 authority、多主/last-writer-wins、自动 adopt live drift、把 registry/upstream 作为 Almagest source、让外部版本变化直接改变本地 desired state。
+- 后果：03B1 只在已获 authority 且确定规则仍无法裁决的候选之间定义临时裁决；03B2 定义派生物反向污染后的处置，污染 evidence 合同由 07/16 细化；03C 固化外部采集/吸收面 Out 的边界；03D 仍须约束吸收后的可执行内容风险；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
+- 验收断言：每个 resolved asset/field 都能追溯到允许其声明的 owned source class；registry 发布新版本或外部 tag 漂移不会产生 Almagest plan；只有吸收后的新 owned revision 才可能改变 desired state；手改 live target 被报告为 drift 而不是新 source；GitHub base 出现 work-only payload、host-local 重写可移植逻辑或任意派生目录反向声明 desired state 时均阻断。
 
 #### 03B1 已拍板：当前 plan 一次性裁决，修 source 必须显式指示
 
@@ -412,6 +413,26 @@ Principal（目标、歧义裁决、高风险批准）
 - 接受的代价：即使恢复动作看似显然，Almagest 也不会自动执行；污染会持续阻断依赖该 source 的配置闭环，直到 principal 现场决定并由 operator Agent 完成修复或纠正检测证据。
 - 后果：DEC-07 定义污染 evidence 与 inventory classification；DEC-09 将污染作为无可 apply plan 的 block；DEC-10 保证阻断路径零写入；DEC-12 区分 source contamination 与普通 live drift；DEC-16 提供按 `detection_id` 获取的 provenance、决策和恢复审计。
 - 验收断言：识别到 source contamination 后，source/live digest 均不因 Almagest 自动动作变化，且相关 target 无可执行 plan；未经 principal 明确指定动作不能隔离、删除、恢复或接纳内容；修复后必须产生新 source revision 并重新 plan；03B1/02C 的任何一次性批准均不能继续使用污染 source。
+
+#### 03C 已拍板：外部采集面完全 Out，只消费吸收后的 owned revision
+
+| 候选 | 外部版本处理边界 | 结果 |
+|---|---|---|
+| A：完全外置采集与吸收 | 外部工具负责周期检查、拉取、校验、评审与吸收；Almagest 只消费吸收后的 owned revision | **已选择** |
+| B：Almagest 只检查并报告 | Almagest 连接外部 registry/upstream 并报告候选，吸收仍由外部工具完成 | 拒绝：仍引入 registry adapter、网络、凭据、调度状态和上游版本语义 |
+| C：Almagest 拉取到非权威隔离区 | Almagest 检查并下载候选，但候选须经外部评审后才吸收 | 拒绝：虽然候选无 authority，仍把 package acquisition 与隔离区生命周期带入控制面 |
+| D：Almagest 端到端更新 | Almagest 检查、选择、拉取、批准并写入 source | 拒绝：混合配置一致性与外部供应链更新，明显超过当前能力边界 |
+
+- 决定（v0.1，2026-07-17，approver: principal）：03C 选择 **A——外部采集与吸收完全外置**。Almagest 不接受外部 registry/upstream 作为 source，也不解析浮动 tag、semver range 或远端 latest；它的输入从“已吸收并形成 owned source revision”开始。
+- 外部工具边界：周期调度、网络访问、registry credential、候选发现、版本比较、拉取、依赖解析、签名/attestation 校验、候选 diff/review、晋级与写入 owned source 均不属于 Almagest。是否建设何种周期工具也不由本决策预设。
+- 水位读取：外部周期工具最多消费 owned source 的 revision/time 与可选 upstream provenance，判断从哪个上游水位继续检查。Almagest 不负责调度该工具，也不把检查结果、候选版本或“可更新”状态纳入 desired、plan、drift 或 receipt。
+- 接入合同：外部流程把内容写入 GitHub personal/shared 或 Mac-local work 并形成新 authored revision 后，Almagest 才按普通 owned source 执行 inventory → resolve → plan → apply → verify。候选区、下载 cache 或 quarantine 不在 source root 内时完全忽略；若进入 source root，则按 03B2 source contamination 阻断，不能自动吸收。
+- `Must`：只解析 owned source；输入固定到 owned revision；外部 provenance 仅作惰性元数据；外部版本变化对 Almagest 零状态变化；吸收后的内容重新经过正常 authority、residency、overlay、capability 与后续 03D 风险策略。
+- `Later`：Almagest 内无外部版本管理扩展项；未来若要让它承担任一上游检查或吸收责任，必须由 principal 明确重开本边界，而不是从 provenance 字段自然扩权。
+- `Out`：上游调度与通知、registry client/adapter、网络与凭据、floating ref resolution、外部候选状态机、下载/cache/quarantine、签名与依赖验证、候选审批、PR/merge 和自动吸收。
+- 接受的代价：Almagest 无法单独回答“上游是否有新版本”或保证外部内容新鲜度；外部检查工具失效时，配置仍保持可复现和一致，但可能停留在旧的 owned revision。
+- 后果：03A v0.2 删除 external authority；DEC-07/16 最多暴露 owned source revision/time 与惰性 provenance，不记录外部候选状态；DEC-09 只固定 owned revision；DEC-12 不把上游可用版本视为配置漂移；DEC-13 只分发 owned 内容；DEC-14 的配置生命周期从吸收完成后的 revision 开始；DEC-15 的 adapter 只适配 consumer 配置，不适配上游 registry。03D 仍须决定吸收后的 skill、hook、MCP、plugin 等可执行/可调用内容如何获批；“已 owned”不等于“已安全”。
+- 验收断言：外部 tag、release 或 registry metadata 单独变化时，Almagest 的 inventory/desired/plan 均不变化；外部工具吸收内容并产生新 owned revision 后，Almagest 只显示该 revision 引起的普通配置差异；Almagest 配置、状态和凭据中不存在上游调度或拉取责任；source root 外的候选被忽略，进入 source root 的候选按 03B2 阻断；吸收后的可执行内容仍不能绕过 03D。
 
 ### DEC-04 Source 驻留与投影策略
 

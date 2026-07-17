@@ -38,6 +38,20 @@ Scenario: downstream 反向污染 source 时只阻断不自动修复
 ```
 
 ```gherkin
+Scenario: 外部版本只在吸收为 owned revision 后进入 Almagest
+  Given 外部 registry、release 或 tag 出现新候选
+  And 外部工具尚未把候选吸收进 GitHub personal/shared 或 Mac-local work
+  When operator Agent 请求 Almagest inventory、plan 或 drift
+  Then 外部候选对 desired state、resolved state 和 plan 零影响
+  And Almagest 不访问上游网络、不解析浮动版本，也不保存候选或可更新状态
+  When 外部工具读取 owned source revision/time 作为水位并完成吸收
+  And owned source 形成新的 authored revision
+  Then Almagest 只把该 revision 作为普通 owned input 进入 inventory、resolve 和 plan
+  And upstream provenance 只作惰性元数据，不取得 authority
+  And 吸收后的可执行或可调用内容仍须经过 DEC-03D 风险策略
+```
+
+```gherkin
 Scenario: 顺序化完成一个决策轴拍板
   Given 当前决策卡的上游依赖均已拍板
   And Codex 已说明问题、事实边界与需要澄清的信息
@@ -92,6 +106,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] principal、operator Agent、Almagest 与 consumer 四种角色无歧义，机器接口是唯一 canonical contract。
 - [ ] 单次冲突裁决与 source 持久修复是两条不同路径；未经 principal 明确指示不得从前者升级到后者。
 - [ ] source contamination 默认只阻断并告警；自动隔离、恢复、删除或 adopt 均不构成隐含恢复权限。
+- [ ] 外部候选、周期检查与吸收完全位于 Almagest 之外；只有吸收后的 owned revision 能改变配置计划。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收
