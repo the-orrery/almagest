@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "layer": {
+    "residency": "mac-local",
+    "host": "mac"
+  },
+  "sources": {
+    "work-source": {
+      "repository": "work/skill-vault",
+      "revision": {
+        "kind": "git-commit",
+        "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "residency": "mac-local-work",
+      "authority": "authored-owned",
+      "host": "mac"
+    }
+  },
+  "assets": {
+    "skill.work-demo": {
+      "kind": "skill",
+      "source": {
+        "source": "work-source",
+        "path": "skills/work-demo"
+      },
+      "mutation_authority": "almagest-managed"
+    }
+  },
+  "assignments": {
+    "skill.work-demo@mac.codex": {
+      "asset": "skill.work-demo",
+      "target": "mac.codex"
+    },
+    "skill.work-demo@mac.qoder": {
+      "asset": "skill.work-demo",
+      "target": "mac.qoder"
+    }
+  }
+}

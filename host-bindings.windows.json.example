@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "host": "win",
+  "source_roots": {
+    "personal/skill-vault": "C:/Users/example/personal/sources/skill-vault"
+  },
+  "bindings": {
+    "win.codex.skills-root": {
+      "kind": "path",
+      "path": "C:/Users/example/.agents/skills"
+    },
+    "win.claude.skills-root": {
+      "kind": "path",
+      "path": "C:/Users/example/.claude/skills"
+    }
+  }
+}
