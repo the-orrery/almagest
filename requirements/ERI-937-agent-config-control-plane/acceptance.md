@@ -3,6 +3,17 @@
 ## 本阶段验收断言
 
 ```gherkin
+Scenario: principal 通过 operator Agent 驱动 Almagest
+  Given principal 用自然语言向 operator Agent 表达目标或作出批准
+  When operator Agent 调用 Almagest 执行 inventory、plan、apply 或 verify
+  Then Almagest 通过稳定 schema、诊断码、退出码和引用 ID 返回机器可消费结果
+  And operator Agent 可按引用 ID 获取完整 diff、provenance 和 explain
+  And principal 不需要直接操作 CLI/TUI 或解析原始 plan
+  And 高风险 apply 只接受绑定 principal 决定与精确 plan hash 的 approval artifact
+  And receipt 分别记录 principal approver 与 operator Agent
+```
+
+```gherkin
 Scenario: 顺序化完成一个决策轴拍板
   Given 当前决策卡的上游依赖均已拍板
   And Codex 已说明问题、事实边界与需要澄清的信息
@@ -39,7 +50,7 @@ Scenario: 完成能力契约
 Scenario: 能力全集具有可追踪证据
   Given DEC-01 已明确纳入的资产类型
   And DEC-02 已明确四个已知 consumer 的 target
-  When 对用户五条成功口径做覆盖审阅
+  When 对用户五条配置成功口径和一条操作者模型成功口径做覆盖审阅
   Then 每条口径均能追踪到 capability、assertion 和 evidence
   And 每种纳入资产与每个已知 consumer 均至少出现在一个正向和必要的负向验收场景中
   And 没有两个能力在未说明边界的情况下声称拥有同一责任
@@ -51,9 +62,10 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 16 张卡的每个决策轴均记录 principal 决定与理由。
 - [ ] 16 张卡的每个决策轴均说明收益、代价、风险和可逆性。
 - [ ] 16 张卡的每个决策轴均映射到可执行或可人工复核的验收断言。
-- [ ] 五条成功口径、四个已知 consumer 与 DEC-01 纳入的每种 asset 均进入追踪矩阵。
+- [ ] 五条配置成功口径、一条操作者模型成功口径、四个已知 consumer 与 DEC-01 纳入的每种 asset 均进入追踪矩阵。
 - [ ] 上下游决定无冲突；发生重开时已重审受影响卡片。
 - [ ] 能力模型可以回答任意 target 的 desired、plan、live、effective 与责任来源。
+- [ ] principal、operator Agent、Almagest 与 consumer 四种角色无歧义，机器接口是唯一 canonical contract。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收

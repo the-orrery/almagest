@@ -4,7 +4,7 @@
 
 | 项 | 约定 |
 |---|---|
-| 读者动作 | principal 按依赖顺序逐项选择能力语义；Codex 负责澄清、生成真实候选、说明推荐与代价，并把结果写回 |
+| 读者动作 | principal 通过与 operator Agent 对话，按依赖顺序逐项选择能力语义；operator Agent 负责澄清、生成真实候选、说明推荐与代价，并把结果写回 |
 | 生命周期 | `capture/` 是不可变诉求快照；本文在能力拍板和蒸馏期间持续更新，结论进入 ADR/spec 后删除本文，不保留待维护的提案副本 |
 | 交付形态 | living decision workbench；它不是当前架构真相，也不是实现计划 |
 | 证据规则 | 每个决策轴必须包含范围、候选、推荐理由、principal 明示决定、被拒选项、后果、依赖影响和可验证断言 |
@@ -34,6 +34,27 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 
 因此，“不负责安装/运行”不等于“不看”。例如 v1 不升级 Codex binary，但必须知道 consumer 产品、版本、路径和配置 schema；不管理整个 shell，但若 wrapper、alias、启动参数或环境变量选择了 `CODEX_HOME`、profile、workspace 或 settings source，就必须纳入受管配置或绑定观测。
 
+## 操作者与批准者模型
+
+Almagest 的主要调用者不是直接操作 CLI/TUI 的人，而是受 principal 指挥的 AI Agent。principal 用自然语言表达目标、裁决歧义并批准高风险动作；operator Agent 调用、解释并驱动流程；Almagest 只做确定性的 plan/apply/verify 和策略执行。
+
+```text
+Principal（目标、歧义裁决、高风险批准）
+  └─ Operator Agent（Codex / Claude / QoderCLI；调用、解释、提交批准、重试）
+       └─ Almagest（确定性解析、预演、实施、验证、审计）
+            └─ Consumer config（被治理的 Codex / Claude / Qoder 配置）
+```
+
+这一定义带来以下全局约束：
+
+1. canonical interface（规范主接口）必须是稳定、非交互、机器可消费的命令/API 合同，提供结构化 schema、诊断码、退出码、plan/receipt ID、provenance、diff 和可选 resolution action；具体传输形态留给实现阶段。
+2. 默认输出应紧凑，只返回 Agent 做下一步判断所需的摘要和引用 ID；详细 provenance、diff 与解释按 ID 按需获取，避免每轮把完整证据塞进上下文。
+3. principal 不需要直接解析原始 plan、编辑配置或操作 `[y/N]` prompt。operator Agent 负责把结构化结果翻译成人话、请求拍板，再提交绑定该决定和精确 plan hash 的 approval artifact。
+4. principal 的批准责任与 operator Agent 的执行身份必须分开记录。Agent 可以自主做只读 inventory/plan/verify，但不得把自己的推断冒充 principal 对高风险动作的批准。
+5. 面向人的 TUI、wizard 或 dashboard 不是 v1 必需能力；未来即使增加，也只能是同一机器合同的客户端，不能形成第二套 authority 或行为语义。
+
+这里的 operator Agent 与 consumer 是两个角色：前者是本次调用 Almagest 的执行主体，后者是配置被投影给的目标实例。同一产品可能同时扮演两者，但在 plan、approval 和 receipt 中不得混用身份。
+
 ## 已知目标拓扑
 
 | Host | OS | Consumer | 允许的 source | 仍需取证 |
@@ -50,6 +71,8 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | 术语 | 工作定义 |
 |---|---|
 | asset | 被治理的 skill、MCP、instructions、settings、hook、plugin 等能力单元；确切范围由 DEC-01 决定 |
+| principal | 通过自然语言给出目标、裁决歧义并批准高风险动作的人；不承担日常 CLI/TUI 操作 |
+| operator Agent | 代表 principal 调用 Almagest、解释结构化结果、提交批准和驱动重试的 AI Agent |
 | consumer | 消费配置的稳定 Agent 实例，例如 Codex、QoderCLI、Claude；具体产品版本是该实例的观测属性 |
 | source | 对声明内容拥有权威性的来源；cache、rendered artifact 和 live target 默认不是 source |
 | root | consumer 会搜索或读取的物理目录/配置入口，一个 consumer 可以有多个 root |
@@ -291,20 +314,20 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 | A：告警后自动跳过 | 继续 apply，自动省略不支持项 | 拒绝：容易把能力损失伪装成成功 |
 | B1：绝对硬阻断 | 告警只能被确认已读，不能继续 apply | 拒绝：缺少 principal 要求的人工担责出口 |
 | B2：默认阻断 + break-glass | 先阻断；对精确降级计划二次确认后，允许带审计地继续 | **已选择** |
-| C：按 required/optional 自动分流 | required 阻断，optional 自动告警跳过 | 拒绝：把是否接受损失预先藏进字段分类，弱于逐次人工确认 |
+| C：按 required/optional 自动分流 | required 阻断，optional 自动告警跳过 | 拒绝：把是否接受损失预先藏进字段分类，弱于逐次 principal 确认 |
 | D：自动近似转换 | adapter 自动改写成 consumer 最接近的配置 | 拒绝：可能静默改变语义，并显著扩大 adapter 责任 |
 
 - 决定（v0.1，2026-07-16，approver: principal）：02C 选择 **B2——默认阻断 + 单次 break-glass 二次确认**。Almagest 将 consumer capability 评估为 `supported`、`unsupported` 或 `unknown`；证据缺失、过期或无法判定时属于 `unknown`，不能乐观视为支持。
-- 默认行为：plan 发现任何 `unsupported/unknown` 时先产生阻断告警，列出 target、受影响资产/字段、capability evidence、预期损失以及能否形成安全降级计划；未取得二次确认前不得写 live target。
-- break-glass 合同：二次确认只批准当前 target 的精确 plan/hash 与预计算降级动作，并要求记录理由。允许继续时只实施可安全拆分的可支持子集，明确省略获批的能力缺失项；不得借确认写入 adapter 无法证明安全的原始配置。若无法形成安全降级计划，仍保持硬阻断。
-- 审计与状态：receipt 至少记录 target、plan hash、capability 状态及证据、被省略项、预期与实际损失、确认人、理由、时间和结果。结果必须标记为 `applied_with_exception` 或等价非合规状态，不得报告为普通 `success/compliant`；source desired state 不因 override 被修改。
-- 生效范围：override 仅对一次 plan/apply 有效；输入、target、capability evidence 或 plan hash 变化即失效，后续 apply 必须重新评估并再次确认。交互式确认或自动化 approval artifact 的具体载体由 DEC-09/10 决定，不存在全局永久 `always allow`。
+- 默认行为：plan 发现任何 `unsupported/unknown` 时先返回结构化阻断诊断，至少引用 target、受影响资产/字段、capability evidence、预期损失以及能否形成安全降级计划；operator Agent 向 principal 解释后请求现场拍板，未取得二次确认前不得写 live target。
+- break-glass 合同：operator Agent 只能提交由 principal 明确作出的二次确认；该 approval artifact 只批准当前 target 的精确 plan/hash 与预计算降级动作，并要求记录理由。允许继续时只实施可安全拆分的可支持子集，明确省略获批的能力缺失项；不得借确认写入 adapter 无法证明安全的原始配置。若无法形成安全降级计划，仍保持硬阻断。
+- 审计与状态：receipt 至少记录 target、plan hash、capability 状态及证据、被省略项、预期与实际损失、principal approver、operator Agent、理由、时间和结果。结果必须标记为 `applied_with_exception` 或等价非合规状态，不得报告为普通 `success/compliant`；source desired state 不因 override 被修改。
+- 生效范围：override 仅对一次 plan/apply 有效；输入、target、capability evidence 或 plan hash 变化即失效，后续 apply 必须重新评估并再次确认。approval artifact 的认证、格式与传输载体由 DEC-09/10 决定；直接面向 principal 的交互式 prompt 不是 canonical gate，也不存在全局永久 `always allow`。
 - 边界：B2 只处理 consumer capability gap，不把硬策略拒绝改造成可确认告警。source trust、secret 泄漏、work residency/egress deny 等禁止项仍由 DEC-03/04/06 fail closed；违反这些规则时不得生成可越过的降级计划。
 - `Must`：三态 capability 判断；告警先于写入；默认阻断；逐 plan 二次确认；安全降级动作；完整 exception receipt；非合规状态持续可见。
 - `Later`：用 runtime probe 证明 consumer 是否实际消费降级结果，以及据此更新 capability evidence；不阻塞 v1 的 config/binding 闭环。
-- `Out`：静默跳过、自动近似改写、永久忽略某类 capability、把 exception 当成功、通过 break-glass 越过硬策略拒绝，或在无法安全拆分时强行写入。
-- 后果：DEC-07/08 必须给 capability observation、freshness 与降级渲染证据；DEC-09 必须展示阻断告警、损失和精确 plan hash；DEC-10 实现二次确认、事务边界和 receipt；DEC-12/16 持续报告生效中的 exception 并可解释其来源。
-- 验收断言：无二次确认时 `unsupported/unknown` 导致零写入；确认后只执行 plan 中已列出的安全降级，receipt 可还原谁在什么证据下接受了哪些损失；plan 输入变化后旧确认不可复用；硬策略拒绝永远不能通过 B2 放行。
+- `Out`：静默跳过、自动近似改写、永久忽略某类 capability、operator Agent 自行批准、把 exception 当成功、通过 break-glass 越过硬策略拒绝，或在无法安全拆分时强行写入。
+- 后果：DEC-07/08 必须给 capability observation、freshness 与降级渲染证据；DEC-09 必须返回机器可消费的阻断诊断、损失和精确 plan hash；DEC-10 实现 Agent 提交的二次确认、事务边界和 receipt；DEC-12/16 持续报告生效中的 exception 并可解释其来源。
+- 验收断言：无绑定 principal 决定的 approval artifact 时，`unsupported/unknown` 导致零写入；确认后只执行 plan 中已列出的安全降级，receipt 可分别还原谁批准、哪个 Agent 执行、在什么证据下接受了哪些损失；plan 输入变化后旧确认不可复用；硬策略拒绝永远不能通过 B2 放行。
 
 ### DEC-03 权威来源与信任
 
@@ -312,7 +335,7 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - 依赖：DEC-01、DEC-02。
 - 决策轴：
   - 03A：GitHub personal/shared、Mac-local work、host-local binding、外部 registry 与派生目录各自能声明什么，ownership 如何分配。
-  - 03B：多个已获 authority 的候选重叠时如何按字段/资产裁决；如何检测 cache、rendered 和 live 反向污染 source。
+  - 03B：多个已获 authority 的候选重叠时如何按字段/资产裁决；如何检测 cache、rendered 和 live 反向污染 source；如何输出可供 operator Agent 解释、由 principal 现场裁决并可持久化后重算的结构化 conflict artifact。具体裁决语义仍待拍板。
   - 03C：外部 source、浮动 revision、签名/digest、allowlist 和更新策略如何受信。
   - 03D：skill、hook、MCP 等可执行或可调用内容如何分级风险并获批。
 - 初步验收：每个 resolved field/contribution 能追溯到允许的 authority；最终裁决与输入 revision/digest 不可歧义；不可信输入 fail closed。
@@ -405,11 +428,11 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - 状态：待给方案
 - 依赖：DEC-03—DEC-08。
 - 决策轴：
-  - 09A：plan 是否完整覆盖 add/remove/change/shadow/block/no-op 及原因链。
+  - 09A：canonical plan schema 是否完整覆盖 add/remove/change/shadow/block/no-op、原因链、稳定诊断码和可执行 resolution action。
   - 09B：是否固定所有 source revision/digest、policy、renderer/adapter 版本和 target inventory snapshot。
-  - 09C：如何按 host/consumer/source class 汇总“多、少、变、shadow、block”数量和风险。
-  - 09D：plan identity/hash、审批粒度、有效期和输入变化后的失效规则。
-- 初步验收：apply 前可回答每个消费者变化及原因；未进入获批 plan 或输入已变化的动作不能执行。
+  - 09C：如何按 host/consumer/source class 生成紧凑的“多、少、变、shadow、block”摘要，并允许 operator Agent 按 ID 获取完整 diff/provenance/explain。
+  - 09D：plan identity/hash、approval artifact、principal approver 与 operator Agent 身份、审批粒度、有效期和输入变化后的失效规则。
+- 初步验收：operator Agent 不解析易变 prose 就能确定状态、风险、下一动作和所需批准，并能按 ID 深挖证据；未进入获批 plan 或输入已变化的动作不能执行。
 
 ### DEC-10 安全实施
 
@@ -417,10 +440,10 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - 依赖：DEC-09。这里只约束受管配置资源的 apply，不承担整机事务、binary/plugin package 安装或进程恢复。
 - 决策轴：
   - 10A：resource ownership 与非纳管资产保护边界。
-  - 10B：apply 如何证明与获批 plan/hash 及固定输入完全等价。
+  - 10B：apply 如何验证 operator Agent 提交的 approval artifact 确实绑定 principal 决定、获批 plan/hash 及固定输入，并证明执行完全等价。
   - 10C：事务/原子边界、并发锁、幂等和重复执行语义。
-  - 10D：备份、rollback、部分失败状态、恢复与人工接管。
-- 初步验收：不会静默删除 unmanaged/unknown-owner 资产；部分失败可诊断且有确定恢复动作。
+  - 10D：备份、rollback、部分失败状态、恢复，以及 operator Agent 告警后由 principal 现场裁决的接管路径。
+- 初步验收：operator Agent 可通过非交互机器接口执行精确获批计划；不会静默删除 unmanaged/unknown-owner 资产；部分失败以稳定状态/诊断码返回，并有确定恢复动作。
 
 ### DEC-11 Effective 验证（Later）
 
@@ -439,10 +462,10 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - 依赖：v1 的 source→live/binding drift 依赖 DEC-07—DEC-10；Later 的 effective/runtime drift 另依赖 DEC-11。
 - 决策轴：
   - 12A：v1 在 source/resolved/rendered/live/binding 之间比较哪些边；Later 是否追加 effective 边。
-  - 12B：检查由手动、hook、定时任务还是外部 daemon 触发；退出码和告警语义。Almagest 不负责 daemon 生命周期。
-  - 12C：如何归因、分级、指派 owner；哪些漂移允许自动修，哪些必须人工审批。
+  - 12B：检查由 operator Agent、hook、定时任务还是外部 daemon 触发；稳定退出码、诊断码和结构化告警语义。Almagest 不负责 daemon 生命周期。
+  - 12C：如何归因、分级、指派 owner；哪些漂移允许自动修，哪些必须由 operator Agent 告警并取得 principal 批准。
   - 12D：Later 如何把 consumer runtime 漂移与配置漂移区分并关联，不得反向改变 v1 成功口径。
-- 初步验收：报告指出差异层、责任 source、证据、风险和下一动作；破坏性修复不会静默发生。
+- 初步验收：结构化报告指出差异层、责任 source、证据、风险和下一动作；operator Agent 可直接据此解释和重试；破坏性修复不会静默发生。
 
 ### DEC-13 跨机配置一致性
 
@@ -482,16 +505,17 @@ consumer 是否已 parsed/registered、discoverable/enabled、callable 或 obser
 - 状态：待给方案
 - 依赖：DEC-01—DEC-15。
 - 决策轴：
-  - 16A：audit/receipt 保存哪些 actor、time、source/digest、policy、plan、target、action、result 和 evidence。
+  - 16A：audit/receipt 如何分别保存 principal approver、operator Agent、time、source/digest、policy、plan、target、action、result 和 evidence。
   - 16B：记录存在哪里、保留多久、如何脱敏和防篡改。
-  - 16C：v1 explain 如何回答 identity、provenance、shadow、block 和 config/binding drift；Later 如何追加 runtime failure/evidence。
+  - 16C：v1 的机器可读 explain 如何通过稳定 ID/诊断码回答 identity、provenance、shadow、block 和 config/binding drift，并以紧凑摘要 + 按需详情控制 Agent 上下文成本；Later 如何追加 runtime failure/evidence。
   - 16D：跨机聚合、离线 receipt、schema 升级和审计记录自身生命周期如何处理。
-- 初步验收：能回答“谁在何时基于哪个固定输入/plan，把什么投影到哪个 target，结果为何生效或失败”。
+- 初步验收：operator Agent 能通过稳定 schema 回答“哪位 principal 在何时批准、哪个 Agent 基于哪个固定输入/plan，把什么投影到哪个 target，结果为何生效或失败”，无需抓取人类界面文本。
 
 ## 需求追踪矩阵
 
 | 用户成功口径 | 主责任卡 | 需覆盖对象 | 最终证据 |
 |---|---|---|---|
+| principal 通过 AI Agent 操作，机器合同稳定且高风险动作保留人工拍板 | DEC-09、DEC-10、DEC-12、DEC-16 | principal、operator Agent、Almagest、consumer 四种角色 | machine contract fixture + approval/receipt golden case |
 | target 应有资产及其 authority/overlay | DEC-01—DEC-06 | 13 个受管配置域、6 类绑定/依赖观测事实；四个已知 consumer | capability spec assertion + fixture |
 | apply 前完整说明变化与原因 | DEC-07—DEC-10 | 每个 host/consumer/source class | plan contract + golden plan |
 | v1 apply 后证明 live 配置与 active binding 正确 | DEC-07—DEC-10、DEC-12 | Mac Codex/Qoder；Windows Codex/Claude | config/binding inventory + drift fixture |
@@ -506,6 +530,7 @@ DEC-01A—01C 已补齐资产范围、identity、version/derivation/conflict 关
 |---|---|---|---|---|---|---|---|
 | A-01 | Assumption | resolved | high | Mac 是否需要 personal/work 两个 consumer context | principal | 2026-07-16 确认不需要；每个 Mac consumer 一个 target，effective config 为 GitHub base + work-local overlay | DEC-02、DEC-04 |
 | A-02 | Assumption | resolved | high | shared 与 work 配置是否为两份完整配置或 overlay | principal | 2026-07-16 确认 GitHub personal/shared base 两机消费，Mac-local work 只作增量 overlay | DEC-02—DEC-05 |
+| A-03 | Assumption | resolved | high | 谁直接操作 Almagest，principal 是否需要面向人的 CLI/TUI | principal | 2026-07-16 确认 principal 通过自然语言指挥 AI Agent；Agent 是 operator，Almagest 是确定性引擎，principal 只保留目标、歧义和高风险拍板 | 全局；DEC-09、DEC-10、DEC-12、DEC-16 |
 | R-01 | Risk | open | critical | work-local payload 可能经 GitHub、Windows cache/render、plan/receipt 或 live projection 泄漏 | Codex | 独立 source root + 全链路 negative fixture；Almagest 管理面内 fail closed，不以 `.gitignore` 作为安全边界 | DEC-02、DEC-04、DEC-06、DEC-09、DEC-13 |
 | R-02 | Risk | open | medium | Later：vendor 无 runtime probe，文件正确却无法证明 consumer 生效 | Codex | 使用 evidence ladder；最高只报 inferred/unknown；不阻塞 v1 配置闭环 | DEC-11 |
 | I-01 | Issue | open | high | QoderCLI 的真实 roots、precedence、frontmatter、profile 未完整取证；runtime inventory 属 Later | Codex | v1 固定产品版本并取得 roots/precedence 实机证据；Later 再补 probe | DEC-08、DEC-11 |
@@ -522,6 +547,7 @@ DEC-01A—01C 已补齐资产范围、identity、version/derivation/conflict 关
 - 本文不选择 gaal、`npx skills`、chezmoi 或任一具体 executor。
 - 本文不预设两份独立配置、编译期生成还是 runtime merge。
 - 本文不预设文件格式、存储位置、控制端拓扑或 adapter/plugin 架构。
+- v1 不建设面向 principal 的 TUI、wizard 或 dashboard；未来 UI 只能作为 canonical machine contract 的客户端。
 - 本文不修改 live 配置，不迁移 skill，不注册 MCP，不建立后台服务。
 - 本文不把 gaal 的已有数据模型或 Almagest 当前实现直接当作目标模型。
 

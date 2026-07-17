@@ -85,7 +85,7 @@
 
 - 2026-07-16，principal 选择 B2：`unsupported/unknown` 默认阻断；Almagest 先输出阻断告警，只有对精确降级计划做 break-glass 二次确认后才能继续。
 - 确认只批准当前 target、plan hash 和预计算降级动作；只 apply 可安全拆分的可支持子集，并显式省略获批缺失项。无法形成安全降级计划时仍阻断。
-- override 不修改 source desired state，不可永久复用；receipt 记录 capability evidence、被省略项、损失、确认人、理由和结果，并将 target 标为 `applied_with_exception`，不冒充普通成功或合规。
+- override 不修改 source desired state，不可永久复用；receipt 记录 capability evidence、被省略项、损失、principal approver、operator Agent、理由和结果，并将 target 标为 `applied_with_exception`，不冒充普通成功或合规。
 - B2 只处理 consumer capability gap；source trust、secret 泄漏、work residency/egress deny 等硬策略拒绝不可通过二次确认越过。A、B1、C、D 分别因伪成功、缺人工出口、隐式分类放行和语义自动改写而拒绝。
 
 ## DEC-03A 拍板结果
@@ -94,6 +94,21 @@
 - GitHub personal/shared base 拥有共享可移植 declaration 与外部 package 的本地采用意图；Mac-local work 拥有 work-only asset/delta；host-local 只拥有受 schema 约束的本机 binding；registry/upstream 只拥有被选 revision 的内容和发布元数据；resolved/rendered/cache/live 无 authored authority。
 - 外部 package 的“本地是否采用、启用和投影”与“上游 revision 内容”分属本地 source 和 registry；签名、digest、浮动 ref 与更新策略留给 03C，合法 overlay/override 留给 03B/05。
 - scope 外声明直接作为 authority violation 阻断，不按低优先级候选处理，也不可通过 DEC-02C break-glass 放行。A、C、D 分别因无法承载 work-local、per-asset 治理过重和多主不可复现而拒绝。
+
+## Agent-first 操作者模型确认与定向体检（2026-07-16）
+
+principal 明示确认：Almagest 由 AI Agent 直接调用；principal 通过自然语言表达目标、裁决歧义并批准高风险动作，不承担日常 CLI/TUI 操作。operator Agent 负责调用、解释、提交批准和重试；Almagest 负责确定性的 plan/apply/verify 与策略执行；被配置的 consumer 是另一个独立角色。
+
+本次按该确认对既有设计做定向 `doc-xray`。读者动作仍是 principal 拍板能力，但产品调用者已明确为 operator Agent；成功 oracle 是既有已决语义不变，同时所有交互假设服从 Agent-first / Principal-in-the-loop（principal 保留拍板、Agent 负责操作）的边界。
+
+| 严重度 | 原位置/问题 | 相对已确认操作者模型的偏离 | 修正 |
+|---|---|---|---|
+| BLOCKER | DEC-02C 把二次确认载体写成“交互式确认或 approval artifact” | 暗示 principal 直接操作 prompt，且 receipt 只有模糊的“确认人” | 改为 operator Agent 提交绑定 principal 决定与 plan hash 的 approval artifact；分别记录 approver 与 operator |
+| MAJOR | DEC-09/10 未要求 canonical machine contract | 实现可能退化成 Agent 抓取易变人类文本，或形成 TUI/API 两套语义 | 加入稳定 schema、诊断码、退出码、plan ID、非交互 apply 和按 ID explain 约束 |
+| MAJOR | DEC-12/16 只有“告警/解释”，没有 Agent 上下文成本与 actor 边界 | 可能默认输出全部证据、浪费 token，也无法区分谁批准与谁执行 | 默认紧凑摘要，详情按 ID 获取；audit 分开记录 principal 与 operator Agent |
+| MINOR | `consumer` 同时可能被理解成调用方和配置消费方 | actor identity 与 target identity 容易混用 | 新增 principal/operator Agent 定义，并明确同一产品可兼任角色但身份必须分开 |
+
+本次没有替 principal 选择 DEC-03B 或 DEC-09/10/12/16 的具体机制，只把它们的候选空间约束到已确认的操作者模型；DEC-02C 的默认阻断、逐 plan break-glass、硬策略不可越过等既有语义保持不变。
 
 ## 验证记录
 
@@ -121,6 +136,9 @@
 | 02C 拍板仓级回归 | 固化 B2 break-glass 合同后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 | 03A 决策记录 | 五类 source 的 ownership、采用权/内容权、越权处理与未决边界均可审计 | 通过：B 标记 `已选择`；source-class matrix、派生目录无 authority、scope violation block 以及 03B/03C/05/06 边界均已明确 |
 | 03A 拍板仓级回归 | 固化 source-class ownership 后不破坏仓级检查 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
+| Agent-first 角色合同 | principal、operator Agent、Almagest、consumer 四个角色分离，且不偷跑待决机制 | 通过：新增全局 actor contract、验收场景与 A-03；02C 仅修正批准载体；03B、09、10、12、16 仍保持待给方案 |
+| Agent-first 结构完整性 | 总览、决策卡、方向约束和新验收均可机械复核 | 通过：总览 16、决策卡 16、DEC-01A 方向约束 15、actor scenario 1、A-03 resolved 1；`git diff --check` 通过 |
+| Agent-first 仓级回归 | 操作者模型与定向审计不破坏现有工程 | 通过：隔离 `XDG_CONFIG_HOME` 后 ruff、format、pyrefly 通过，pytest 31/31 通过 |
 
 ## 验证边界
 
