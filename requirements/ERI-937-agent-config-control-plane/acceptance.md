@@ -159,7 +159,35 @@ Scenario: 非等价 overlay 必须显式声明 override 或 mask
   And 所有非 no-op 写入仍必须取得 DEC-03D 对当前精确 plan 的批准
   When collision 同时违反 authority、eligibility、residency、egress、secret 或 capability hard policy
   Then hard policy block 优先，DEC-05C、DEC-03B1 与普通 approval 均不能放行
-  And target reference 是否绑定 expected revision/digest 不在本场景预设，由 DEC-05D 决定
+  And target reference 是否绑定 expected revision/digest 不在本场景预设，仍待 DEC-05D 后续拍板
+```
+
+```gherkin
+Scenario: 两个 authority source 使用 inventory 引用原生 payload
+  Given GitHub personal/shared 与 Mac-local work 是仅有的两个 authored source
+  And 每个 source 均提供一份逻辑、版本化、机器可校验的 inventory
+  When Almagest 读取一个 inventory entry
+  Then entry 可表达 stable logical ID、asset kind、source-relative payload reference、selector 与 contribution operation
+  And override/mask entry 可表达无歧义的 target reference
+  And 实际 skill、MCP、instructions、settings、hooks 或 plugin 内容仍保存在原生 payload 中
+  And inventory 不复制 payload 正文
+  When payload path 改变但 logical ID 与 canonical content 保持不变
+  Then Almagest 仍把它识别为同一 logical asset
+  When inventory schema 缺失或不受支持、logical ID 重复、payload reference dangling/ambiguous 或越出 source root
+  Then source 标记 invalid 并阻断依赖它的 resolve/apply
+  When payload root 中出现未登记的候选内容
+  Then 不得自动 adopt 或加入 authored candidate set
+  And 只能作为 orphan/unmanaged evidence 交给 DEC-07/09
+  When Almagest 为 Windows target 建立候选
+  Then 只读取 GitHub inventory 及其 payload
+  And 不读取、不接收也不探测 work inventory
+  When Almagest 为 Mac target 建立候选
+  Then 分别验证 GitHub 与 work inventory/payload，再按 eligibility 和 DEC-05A—05C resolve
+  When Almagest render 任一 consumer 配置
+  Then inventory 中的 ID、selector、operation、target reference 与 provenance 不得注入 SKILL.md frontmatter、instruction/prompt body 或 rendered config
+  And payload 原有 consumer/asset frontmatter 的保留、删除或翻译仍由 DEC-08C 决定
+  When target reference schema 尚未完成后续拍板
+  Then 不得预设它只绑定 stable ID 或同时绑定 expected revision/digest
 ```
 
 ```gherkin
