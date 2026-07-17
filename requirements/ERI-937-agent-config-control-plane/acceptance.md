@@ -26,6 +26,18 @@ Scenario: authority 合法但仍歧义时只做当前 plan 的一次性裁决
 ```
 
 ```gherkin
+Scenario: downstream 反向污染 source 时只阻断不自动修复
+  Given Almagest 根据受管 provenance evidence 识别到 cache、resolved、rendered 或 live 内容进入 authority source
+  When operator Agent 请求 inventory、resolve、plan 或 apply
+  Then Almagest 返回带 detection ID、source、证据、影响和恢复候选的结构化阻断诊断
+  And 只读 inventory、explain 与取证可以继续
+  And source、live 及其它 downstream 状态均不被自动隔离、删除、恢复或接纳
+  And plan surface 只返回 block-only record，依赖该 source 的 resolve、可执行 action 与 apply 保持阻断
+  And DEC-02C break-glass 或 DEC-03B1 单次裁决均不能绕过阻断
+  And 只有 principal 明确指定修复动作后，Agent 才改变 source、生成新 revision 并重新 plan
+```
+
+```gherkin
 Scenario: 顺序化完成一个决策轴拍板
   Given 当前决策卡的上游依赖均已拍板
   And Codex 已说明问题、事实边界与需要澄清的信息
@@ -79,6 +91,7 @@ Scenario: 能力全集具有可追踪证据
 - [ ] 能力模型可以回答任意 target 的 desired、plan、live、effective 与责任来源。
 - [ ] principal、operator Agent、Almagest 与 consumer 四种角色无歧义，机器接口是唯一 canonical contract。
 - [ ] 单次冲突裁决与 source 持久修复是两条不同路径；未经 principal 明确指示不得从前者升级到后者。
+- [ ] source contamination 默认只阻断并告警；自动隔离、恢复、删除或 adopt 均不构成隐含恢复权限。
 - [ ] 已形成实现归属评估的输入，但尚未替 principal 做技术选型。
 
 ## 本轮文档落盘验收

@@ -331,12 +331,12 @@ Principal（目标、歧义裁决、高风险批准）
 
 ### DEC-03 权威来源与信任
 
-- 状态：03A、03B1 已拍板；03B2、03C、03D 待给方案
+- 状态：03A、03B1、03B2 已拍板；03C、03D 待给方案
 - 依赖：DEC-01、DEC-02。
 - 决策轴：
   - 03A：GitHub personal/shared、Mac-local work、host-local binding、外部 registry 与派生目录各自能声明什么，ownership 如何分配。
   - 03B1：多个已获 authority 的候选仍无法由确定规则裁决时，如何输出结构化 conflict artifact、取得 principal 决定并决定该裁决的生效范围。
-  - 03B2：如何检测 cache、resolved、rendered 和 live 反向污染 source，以及发现污染后的隔离、恢复和取证语义。
+  - 03B2：检测到 cache、resolved、rendered 或 live 反向污染 source 后，是否自动隔离/恢复，以及如何阻断、取证和取得 principal 决定。污染证据类型、置信度和 freshness 合同由 DEC-07/16 细化。
   - 03C：外部 source、浮动 revision、签名/digest、allowlist 和更新策略如何受信。
   - 03D：skill、hook、MCP 等可执行或可调用内容如何分级风险并获批。
 - 初步验收：每个 resolved field/contribution 能追溯到允许的 authority；最终裁决与输入 revision/digest 不可歧义；临时裁决不冒充稳定一致；不可信输入 fail closed。
@@ -366,7 +366,7 @@ Principal（目标、歧义裁决、高风险批准）
 - `Must`：固定 source-class ownership matrix；所有 source 与声明可审计归类；外部 package 的本地采用权与上游内容权分离；派生/live 状态无 authority；越权声明 fail closed。
 - `Later`：若未来出现多个团队独立维护同一 source class，再评估 namespace/team delegation；当前不预建通用组织级 authority service。
 - `Out`：GitHub-only 伪单一真相、逐 asset 任意 authority、多主/last-writer-wins、自动 adopt live drift、让 registry 更新直接改变本地 desired state。
-- 后果：03B1 只在已获 authority 且确定规则仍无法裁决的候选之间定义临时裁决；03B2 定义派生物反向污染检测；03C 定义 external source/revision 的信任与更新；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
+- 后果：03B1 只在已获 authority 且确定规则仍无法裁决的候选之间定义临时裁决；03B2 定义派生物反向污染后的处置，污染 evidence 合同由 07/16 细化；03C 定义 external source/revision 的信任与更新；05 定义合法 layer 的 overlay；06 定义 host-local binding/secret contract；07/16 必须展示 authority provenance 与越权原因。
 - 验收断言：每个 resolved asset/field 都能追溯到允许其声明的 source class；registry 发布新版本不会自动改变本地采用或启用状态；手改 live target 被报告为 drift 而不是新 source；GitHub base 出现 work-only payload、host-local 重写可移植逻辑或任意派生目录反向声明 desired state 时均阻断。
 
 #### 03B1 已拍板：当前 plan 一次性裁决，修 source 必须显式指示
@@ -388,8 +388,30 @@ Principal（目标、歧义裁决、高风险批准）
 - `Later`：若重复冲突造成不可接受的审批负担，再由 principal 重开本轴评估持久规则；当前不预建 resolution registry。
 - `Out`：last-writer-wins、按 layer/时间猜测 principal 意图、自动修 source、Agent 自行批准、把单次选择升级为永久规则、复用已失效的裁决，或用本轴越过硬策略拒绝。
 - 接受的代价：该选择保留了 principal 对每次歧义和 source 修改的完全控制，但不会让歧义 source 自动收敛；重复冲突会重复消耗审批，并使对应 target 保持 exception 而非稳定合规状态。
-- 后果：DEC-05 必须先穷尽确定性 overlay/merge，只有真正歧义才产生 conflict；DEC-09 固定 conflict set、候选和 plan hash；DEC-10 验证 approval 与执行等价；DEC-12 持续报告未修 source 的冲突；DEC-16 分别解释 principal 选择、operator Agent 和 exception 状态。03B2 污染检测仍待拍板。
+- 后果：DEC-05 必须先穷尽确定性 overlay/merge，只有真正歧义才产生 conflict；DEC-09 固定 conflict set、候选和 plan hash；DEC-10 验证 approval 与执行等价；DEC-12 持续报告未修 source 的冲突；DEC-16 分别解释 principal 选择、operator Agent 和 exception 状态。03B2 污染处置见下节。
 - 验收断言：无完整单次裁决时冲突导致零写入；获批后只执行精确 plan 中逐项选择的结果且 source digest 不变；重新 plan 时同一 source 歧义再次阻断；只有 principal 明确要求修 source 后才生成 source diff/new revision，并必须基于新 revision 重新 plan。
+
+#### 03B2 已拍板：阻断并告警，source 保持不动
+
+本轴的输入是 Almagest 已根据受管 provenance/inventory evidence 将某个 source 内容识别为 downstream 反向污染；哪些证据足以形成 `confirmed/suspected/unknown`、证据何时过期，由 DEC-07/16 定义。本轴只决定一旦达到阻断条件后系统能否自行修改 source。
+
+| 候选 | 检出污染后的默认动作 | 结果 |
+|---|---|---|
+| A：阻断并告警 | 停止 resolve/plan/apply，返回证据和恢复候选；source 不动，等待 principal 现场决定 | **已选择** |
+| B：自动隔离 | 把疑似污染内容移出 source 到隔离区，再继续或重新 plan | 拒绝：即使可逆也会在未授权时修改 source |
+| C：自动恢复 | 按 Git/已知 source revision 自动覆盖污染内容 | 拒绝：误判时可能覆盖合法 authored change |
+| D：证据分级自动处置 | 证据确凿时自动隔离，其余情况走 A | 拒绝：仍把 source mutation authority 隐藏在证据分类中 |
+
+- 决定（v0.1，2026-07-16，approver: principal）：03B2 选择 **A——阻断并告警，source 保持不动**。Almagest 返回机器可读 contamination diagnostic，由 operator Agent 解释；在 principal 明确指定下一动作前，不隔离、不删除、不恢复、不 adopt，也不继续生成可 apply 的 plan。
+- 阻断合同：diagnostic 至少引用 `detection_id`、`source_id`、受影响 path/asset、observed digest、预期 source revision、downstream lineage/evidence、影响的 target/plan、风险和可选 recovery action。检测发生后允许继续只读 inventory/explain/取证；plan surface 只能返回 block-only record，所有依赖该 source 的 resolve、可执行 action 和 apply 均停止且零写入。
+- principal 决策边界：principal 可以要求继续取证、判定误报，或明确选择隔离、删除、恢复、重写/接纳为 authored content 等修复动作。operator Agent 只能执行被明确指定的动作；若要接纳 downstream 内容，必须转成由合法 authority source 承载的显式 authored change，不能把 cache/rendered/live 本身重新标成 source。
+- 恢复出口：任何 source 修复都必须留下 before/after evidence，形成新的 source revision/snapshot，并重新执行 inventory → resolve → plan；旧 plan、03B1 单次裁决和 DEC-02C break-glass 均不能绕过 source contamination block。
+- `Must`：污染诊断结构化；先阻断后告警；source 与 downstream 零自动写入；只读取证可继续；任何修复逐动作取得 principal 明示；修复后新 revision + 全量 replan；硬阻断不可被临时 approval 绕过。
+- `Later`：若证据合同成熟且实际出现大量重复污染，再由 principal 重开本轴评估自动隔离/恢复；v1 不预建自动修复。
+- `Out`：静默清理、自动 quarantine/restore/adopt、继续使用已污染 source 生成 plan、Agent 自行选择恢复动作、把 derived/live 状态提升为 authority，或在 source 未恢复可信前报告 compliant。
+- 接受的代价：即使恢复动作看似显然，Almagest 也不会自动执行；污染会持续阻断依赖该 source 的配置闭环，直到 principal 现场决定并由 operator Agent 完成修复或纠正检测证据。
+- 后果：DEC-07 定义污染 evidence 与 inventory classification；DEC-09 将污染作为无可 apply plan 的 block；DEC-10 保证阻断路径零写入；DEC-12 区分 source contamination 与普通 live drift；DEC-16 提供按 `detection_id` 获取的 provenance、决策和恢复审计。
+- 验收断言：识别到 source contamination 后，source/live digest 均不因 Almagest 自动动作变化，且相关 target 无可执行 plan；未经 principal 明确指定动作不能隔离、删除、恢复或接纳内容；修复后必须产生新 source revision 并重新 plan；03B1/02C 的任何一次性批准均不能继续使用污染 source。
 
 ### DEC-04 Source 驻留与投影策略
 
