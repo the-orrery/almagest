@@ -26,40 +26,68 @@
     "mac.codex": {
       "host": "mac",
       "consumer": "codex",
-      "bindings": ["mac.codex.skills-root"]
+      "bindings": [
+        "mac.codex.runtime-home",
+        "mac.codex.user-home"
+      ]
     },
     "mac.qoder": {
       "host": "mac",
       "consumer": "qodercli",
-      "bindings": ["mac.qoder.skills-root"]
+      "bindings": ["mac.qoder.user-home"]
     },
     "win.codex": {
       "host": "win",
       "consumer": "codex",
-      "bindings": ["win.codex.skills-root"]
+      "bindings": [
+        "win.codex.runtime-home",
+        "win.codex.user-home"
+      ]
     },
     "win.claude": {
       "host": "win",
       "consumer": "claude",
-      "bindings": ["win.claude.skills-root"]
+      "bindings": [
+        "win.claude.user-home",
+        "win.claude.state-file"
+      ]
     }
   },
   "bindings": {
-    "mac.codex.skills-root": {
+    "mac.codex.runtime-home": {
       "host": "mac",
-      "kind": "path"
+      "kind": "path",
+      "role": "codex.runtime-home"
     },
-    "mac.qoder.skills-root": {
+    "mac.codex.user-home": {
       "host": "mac",
-      "kind": "path"
+      "kind": "path",
+      "role": "codex.user-home"
     },
-    "win.codex.skills-root": {
-      "host": "win",
-      "kind": "path"
+    "mac.qoder.user-home": {
+      "host": "mac",
+      "kind": "path",
+      "role": "qoder.user-home"
     },
-    "win.claude.skills-root": {
+    "win.codex.runtime-home": {
       "host": "win",
-      "kind": "path"
+      "kind": "path",
+      "role": "codex.runtime-home"
+    },
+    "win.codex.user-home": {
+      "host": "win",
+      "kind": "path",
+      "role": "codex.user-home"
+    },
+    "win.claude.user-home": {
+      "host": "win",
+      "kind": "path",
+      "role": "claude.user-home"
+    },
+    "win.claude.state-file": {
+      "host": "win",
+      "kind": "path",
+      "role": "claude.state-file"
     }
   },
   "assets": {

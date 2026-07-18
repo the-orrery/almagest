@@ -44,8 +44,16 @@ def _shared_document() -> dict:
             },
         },
         "bindings": {
-            "win.codex.skills-root": {"host": "win", "kind": "path"},
-            "win.claude.skills-root": {"host": "win", "kind": "path"},
+            "win.codex.skills-root": {
+                "host": "win",
+                "kind": "path",
+                "role": "codex.user-home",
+            },
+            "win.claude.skills-root": {
+                "host": "win",
+                "kind": "path",
+                "role": "claude.user-home",
+            },
         },
         "assets": {
             "skill.demo": {
@@ -98,8 +106,16 @@ def _local_document() -> dict:
             },
         },
         "bindings": {
-            "mac.codex.skills-root": {"host": "mac", "kind": "path"},
-            "mac.qoder.skills-root": {"host": "mac", "kind": "path"},
+            "mac.codex.skills-root": {
+                "host": "mac",
+                "kind": "path",
+                "role": "codex.user-home",
+            },
+            "mac.qoder.skills-root": {
+                "host": "mac",
+                "kind": "path",
+                "role": "qoder.user-home",
+            },
         },
         "assets": {
             "skill.work": {
@@ -543,6 +559,7 @@ def test_inline_secret_and_unknown_fields_never_echo_input(tmp_path: Path) -> No
     shared_raw["bindings"]["win.codex.secret"] = {
         "host": "win",
         "kind": "secret-ref",
+        "role": "secret.mcp",
     }
     shared_raw["targets"]["win.codex"]["bindings"].append("win.codex.secret")
     shared = _write_json(tmp_path / "shared.json", shared_raw)

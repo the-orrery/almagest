@@ -5,13 +5,21 @@
     "personal/skill-vault": "C:/Users/example/personal/sources/skill-vault"
   },
   "bindings": {
-    "win.codex.skills-root": {
+    "win.codex.runtime-home": {
       "kind": "path",
-      "path": "C:/Users/example/.agents/skills"
+      "path": "C:/Users/example/.codex"
     },
-    "win.claude.skills-root": {
+    "win.codex.user-home": {
       "kind": "path",
-      "path": "C:/Users/example/.claude/skills"
+      "path": "C:/Users/example/.codex"
+    },
+    "win.claude.user-home": {
+      "kind": "path",
+      "path": "C:/Users/example/.claude"
+    },
+    "win.claude.state-file": {
+      "kind": "path",
+      "path": "C:/Users/example/.claude.json"
     }
   }
 }

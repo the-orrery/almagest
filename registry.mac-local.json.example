@@ -16,6 +16,20 @@
       "host": "mac"
     }
   },
+  "targets": {
+    "mac.qoder.work": {
+      "host": "mac",
+      "consumer": "qodercli",
+      "bindings": ["mac.qoder.work-home"]
+    }
+  },
+  "bindings": {
+    "mac.qoder.work-home": {
+      "host": "mac",
+      "kind": "path",
+      "role": "qoder.work-home"
+    }
+  },
   "assets": {
     "skill.work-demo": {
       "kind": "skill",
@@ -31,9 +45,13 @@
       "asset": "skill.work-demo",
       "target": "mac.codex"
     },
-    "skill.work-demo@mac.qoder": {
+    "skill.demo@mac.qoder.work": {
+      "asset": "skill.demo",
+      "target": "mac.qoder.work"
+    },
+    "skill.work-demo@mac.qoder.work": {
       "asset": "skill.work-demo",
-      "target": "mac.qoder"
+      "target": "mac.qoder.work"
     }
   }
 }

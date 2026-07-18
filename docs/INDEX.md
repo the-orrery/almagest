@@ -13,6 +13,7 @@ kind: index
 - [[architecture]]：仓库开发地图；说明项目是什么、模块怎么分、关键不变量、主路径和“改 X 去哪”。
 - [[source-resolution-contract]]：skill source identity 与 host-local root overlay 的实现约束。
 - [[registry-contract]]：Agent 配置 Registry、Mac-local overlay、host binding 与安全诊断约束。
+- [[inventory-contract]]：当前主机只读盘点、consumer adapter、兼容证据、正交状态与安全输出约束。
 
 维护规则：
 

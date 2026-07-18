@@ -21,10 +21,14 @@ immutable release.
 ## 运行
 
     uv run almagest
+    uv run almagest registry validate --help
+    uv run almagest inventory adapters --json
+    uv run almagest inventory scan --help
 
 ## 文档
 
     docs/INDEX.md          # 文档入口
     docs/architecture.md   # 开发地图
+    docs/inventory-contract.md  # 当前主机只读盘点契约
 
 > 由 [seed](https://github.com/the-orrery/seed) 模版生成；后续一致性靠 CI 和本地审计维护，不做模版回灌。

@@ -135,6 +135,7 @@ class BindingDeclaration(StrictModel):
 
     host: str = Field(min_length=1)
     kind: BindingKind
+    role: str = Field(min_length=1)
 
 
 class AssetSource(StrictModel):
@@ -238,6 +239,7 @@ class RegistryCheck:
 
     catalog: RegistryCatalog | None
     diagnostics: tuple[RegistryDiagnostic, ...]
+    host_bindings: HostBindings | None = None
 
     @property
     def ok(self) -> bool:
@@ -755,6 +757,8 @@ def assemble_registry(
         diagnostics.append(_diagnostic("unsupported-host-consumer", "registry"))
     if any(binding.host not in typed_hosts for binding in typed_bindings.values()):
         diagnostics.append(_diagnostic("unknown-binding-host", "binding"))
+    if any(not _stable_id(binding.role) for binding in typed_bindings.values()):
+        diagnostics.append(_diagnostic("invalid-binding-role", "binding"))
     if any(
         any(
             binding not in typed_bindings or typed_bindings[binding].host != target.host
@@ -784,6 +788,22 @@ def assemble_registry(
         for assignment in typed_assignments.values()
     ):
         diagnostics.append(_diagnostic("invalid-assignment-binding", "binding"))
+    for target_id, target in typed_targets.items():
+        binding_ids = set(target.bindings)
+        binding_ids.update(
+            binding_id
+            for assignment in typed_assignments.values()
+            if assignment.target == target_id
+            for binding_id in assignment.bindings
+        )
+        role_bindings: dict[str, set[str]] = {}
+        for binding_id in binding_ids:
+            declaration = typed_bindings.get(binding_id)
+            if declaration is None:
+                continue
+            role_bindings.setdefault(declaration.role, set()).add(binding_id)
+        if any(len(role_ids) > 1 for role_ids in role_bindings.values()):
+            diagnostics.append(_diagnostic("duplicate-target-binding-role", "binding"))
     if any(
         document.layer.host is not None
         and any(
@@ -920,15 +940,22 @@ def validate_host_bindings(
     if host is None:
         return (_diagnostic("unknown-current-host", "host"),)
 
+    current_targets = {
+        target_id: target
+        for target_id, target in catalog.targets.items()
+        if target.host == host_bindings.host
+    }
     assignments = [
         assignment
         for assignment in catalog.assignments.values()
-        if catalog.targets[assignment.target].host == host_bindings.host
+        if assignment.target in current_targets
     ]
-    required_bindings: set[str] = set()
+    required_bindings: set[str] = {
+        binding_id
+        for target in current_targets.values()
+        for binding_id in target.bindings
+    }
     for assignment in assignments:
-        target = catalog.targets[assignment.target]
-        required_bindings.update(target.bindings)
         required_bindings.update(assignment.bindings)
 
     for binding_id in required_bindings:
@@ -1012,6 +1039,7 @@ def check_registry(
         return RegistryCheck(
             catalog=loaded.catalog,
             diagnostics=(_diagnostic("host-platform-mismatch", "host"),),
+            host_bindings=host_bindings,
         )
     if any(
         layer.residency == LayerResidency.MAC_LOCAL and layer.host != host_bindings.host
@@ -1020,6 +1048,11 @@ def check_registry(
         return RegistryCheck(
             catalog=loaded.catalog,
             diagnostics=(_diagnostic("local-layer-host-mismatch", "layer"),),
+            host_bindings=host_bindings,
         )
     diagnostics = validate_host_bindings(loaded.catalog, host_bindings)
-    return RegistryCheck(catalog=loaded.catalog, diagnostics=diagnostics)
+    return RegistryCheck(
+        catalog=loaded.catalog,
+        diagnostics=diagnostics,
+        host_bindings=host_bindings,
+    )

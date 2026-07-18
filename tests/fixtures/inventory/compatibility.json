@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "adapters": {
+    "claude-code.windows": {
+      "product": "claude-code",
+      "fixture_version_prefixes": ["2."],
+      "format_fingerprint": "claude-code-config-v1",
+      "required_role_sets": [
+        ["claude.state-file", "claude.user-home"]
+      ],
+      "skill_frontmatter": ["name", "description"]
+    },
+    "codex.macos": {
+      "product": "codex-cli",
+      "fixture_version_prefixes": ["0.144."],
+      "format_fingerprint": "codex-config-v1",
+      "required_role_sets": [
+        ["codex.runtime-home", "codex.user-home"]
+      ],
+      "skill_frontmatter": ["name", "description"]
+    },
+    "codex.windows": {
+      "product": "codex-cli",
+      "fixture_version_prefixes": ["0.144."],
+      "format_fingerprint": "codex-config-v1",
+      "required_role_sets": [
+        ["codex.runtime-home", "codex.user-home"]
+      ],
+      "skill_frontmatter": ["name", "description"]
+    },
+    "qodercli.macos": {
+      "product": "qodercli",
+      "fixture_version_prefixes": ["1.0.47"],
+      "format_fingerprint": "qoder-config-v1",
+      "required_role_sets": [
+        ["qoder.user-home"],
+        ["qoder.work-home"]
+      ],
+      "skill_frontmatter": ["name", "description"]
+    }
+  }
+}

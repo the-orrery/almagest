@@ -6,13 +6,21 @@
     "work/skill-vault": "/Users/example/work/sources/skill-vault"
   },
   "bindings": {
-    "mac.codex.skills-root": {
+    "mac.codex.runtime-home": {
       "kind": "path",
-      "path": "/Users/example/.agents/skills"
+      "path": "/Users/example/.codex-runtime"
     },
-    "mac.qoder.skills-root": {
+    "mac.codex.user-home": {
       "kind": "path",
-      "path": "/Users/example/.qoder/skills"
+      "path": "/Users/example/.codex"
+    },
+    "mac.qoder.user-home": {
+      "kind": "path",
+      "path": "/Users/example/.qoder"
+    },
+    "mac.qoder.work-home": {
+      "kind": "path",
+      "path": "/Users/example/.qoderwork"
     }
   }
 }

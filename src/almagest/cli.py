@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from almagest import registry, skills, telemetry
+from almagest import inventory, registry, skills, telemetry
 from almagest.logging_setup import setup_logging
 
 app = typer.Typer(
@@ -20,6 +20,12 @@ registry_app = typer.Typer(
     help="严格加载并校验 authored Agent 配置 registry",
 )
 app.add_typer(registry_app, name="registry")
+inventory_app = typer.Typer(
+    no_args_is_help=True,
+    add_completion=False,
+    help="只读盘点当前 host 的 Agent 配置与 adapter coverage",
+)
+app.add_typer(inventory_app, name="inventory")
 
 
 def _doctor_report(
@@ -142,6 +148,86 @@ def validate_registry(
         for diagnostic in result.normalized_diagnostics:
             typer.echo(f"BLOCK  {diagnostic.code} [{diagnostic.scope}]")
     if not result.ok:
+        raise typer.Exit(1)
+
+
+@inventory_app.command(name="adapters")
+def list_inventory_adapters(
+    json_output: bool = typer.Option(False, "--json", help="输出稳定的机器可读 JSON"),
+) -> None:
+    """列出内置 consumer adapter、revision 与兼容证据要求。"""
+    setup_logging()
+    report = inventory.adapter_report()
+    if json_output:
+        typer.echo(json.dumps(report, ensure_ascii=False, sort_keys=True))
+        return
+    for adapter in report["adapters"]:
+        typer.echo(
+            f"{adapter['adapter_id']:22s} {adapter['platform']:8s} "
+            f"{adapter['product']:12s} {adapter['format_fingerprint']}"
+        )
+
+
+@inventory_app.command(name="scan")
+def scan_inventory(
+    shared: list[Path] = typer.Option(
+        ..., "--shared", help="shared registry JSON；可重复"
+    ),
+    host_bindings: Path = typer.Option(
+        ..., "--host-bindings", help="当前 host-local bindings JSON"
+    ),
+    consumer_evidence: Path = typer.Option(
+        ..., "--consumer-evidence", help="当前 consumer 版本/格式证据 JSON"
+    ),
+    local: list[Path] = typer.Option(
+        [], "--local", help="Mac-local registry JSON；可重复，Windows 禁止"
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="输出稳定、脱敏、root-relative 的机器可读 JSON"
+    ),
+) -> None:
+    """只读盘点当前 host；不写、不 adopt、不推导修复动作。"""
+    setup_logging()
+    try:
+        result = inventory.scan_inventory(
+            shared,
+            host_bindings_path=host_bindings,
+            consumer_evidence_path=consumer_evidence,
+            local_paths=local,
+        )
+    except RuntimeError:
+        result = inventory.InventorySnapshot(
+            status=inventory.SnapshotStatus.BLOCK,
+            registry_revision=None,
+            inventory_revision="",
+            host_id=None,
+            platform=registry.Platform.MACOS,
+            adapters=(),
+            claims=(),
+            coverage=(),
+            diagnostics=(
+                inventory.InventoryDiagnostic(
+                    code="unsupported-host-platform",
+                    scope="inventory",
+                    severity="block",
+                ),
+            ),
+        )
+    report = result.report()
+    if json_output:
+        typer.echo(json.dumps(report, ensure_ascii=False, sort_keys=True))
+    else:
+        summary = report["summary"]
+        typer.echo(
+            f"{report['status']} · inventory {report['inventory_revision']} · "
+            f"{summary['targets']} targets · {summary['claims']} claims"
+        )
+        for diagnostic in report["diagnostics"]:
+            typer.echo(
+                f"{diagnostic['severity'].upper():5s} "
+                f"{diagnostic['code']} [{diagnostic['scope']}]"
+            )
+    if result.status != inventory.SnapshotStatus.PASS:
         raise typer.Exit(1)
 
 

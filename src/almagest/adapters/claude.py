@@ -1,0 +1,87 @@
+"""Claude Code Windows inventory adapter descriptor."""
+
+from almagest.adapters.base import AdapterDescriptor, SurfaceMode, SurfaceRule
+from almagest.registry import AssetKind, Consumer, Platform
+
+CLAUDE_WINDOWS = AdapterDescriptor(
+    adapter_id="claude-code.windows",
+    platform=Platform.WINDOWS,
+    consumer=Consumer.CLAUDE,
+    product="claude-code",
+    format_fingerprint="claude-code-config-v1",
+    fixture_version_prefixes=("2.",),
+    required_role_sets=(frozenset({"claude.user-home", "claude.state-file"}),),
+    rules=(
+        SurfaceRule(
+            "claude.active-root",
+            AssetKind.SELECTOR,
+            "claude.user-home",
+            "",
+            SurfaceMode.ROOT,
+            "active-root",
+        ),
+        SurfaceRule(
+            "claude.settings",
+            AssetKind.SETTINGS,
+            "claude.user-home",
+            "settings.json",
+            SurfaceMode.FILE,
+            "settings",
+        ),
+        SurfaceRule(
+            "claude.hooks",
+            AssetKind.HOOK,
+            "claude.user-home",
+            "settings.json",
+            SurfaceMode.JSON_MAP,
+            "hook-config",
+            selector=("hooks",),
+        ),
+        SurfaceRule(
+            "claude.plugins-config",
+            AssetKind.PLUGIN,
+            "claude.user-home",
+            "settings.json",
+            SurfaceMode.JSON_MAP,
+            "plugin-config",
+            selector=("enabledPlugins",),
+        ),
+        SurfaceRule(
+            "claude.plugins-packages",
+            AssetKind.PLUGIN,
+            "claude.user-home",
+            "plugins",
+            SurfaceMode.DIRECTORY,
+            "plugin-package",
+            default_ownership="external-owned",
+        ),
+        SurfaceRule(
+            "claude.instructions",
+            AssetKind.INSTRUCTION,
+            "claude.user-home",
+            "CLAUDE.md",
+            SurfaceMode.FILE,
+            "instruction",
+        ),
+        SurfaceRule(
+            "claude.skills",
+            AssetKind.SKILL,
+            "claude.user-home",
+            "skills",
+            SurfaceMode.DIRECTORY,
+            "skill",
+            required_frontmatter=("name", "description"),
+        ),
+        SurfaceRule(
+            "claude.user-mcp",
+            AssetKind.MCP,
+            "claude.state-file",
+            "",
+            SurfaceMode.JSON_MAP,
+            "mcp",
+            selector=("mcpServers",),
+            precedence=10,
+        ),
+    ),
+    unsupported_kinds=frozenset({AssetKind.PROFILE}),
+)
