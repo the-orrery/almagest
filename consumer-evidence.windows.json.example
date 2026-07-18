@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "consumers": {
+    "win.codex": {
+      "product": "codex-cli",
+      "version": "0.144.0",
+      "format_fingerprint": "codex-config-v1",
+      "evidence_source": "fixture",
+      "host_verified": false
+    },
+    "win.claude": {
+      "product": "claude-code",
+      "version": "2.0.0",
+      "format_fingerprint": "claude-code-config-v1",
+      "evidence_source": "fixture",
+      "host_verified": false
+    }
+  }
+}

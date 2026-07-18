@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from almagest import inventory, registry
 from almagest.adapters import ADAPTERS
+from almagest.adapters.base import EvidenceSource
 from almagest.cli import app
 
 REVISION = "a" * 40
@@ -360,6 +361,23 @@ def test_checked_in_compatibility_fixture_matches_adapter_contracts() -> None:
         ]
         assert expected["skill_frontmatter"] == list(
             skill_rules[0].required_frontmatter
+        )
+
+
+def test_checked_in_consumer_evidence_examples_are_safe_templates() -> None:
+    """Evidence examples are schema-valid but never impersonate a live host."""
+    for name in (
+        "consumer-evidence.macos.json.example",
+        "consumer-evidence.windows.json.example",
+    ):
+        document = inventory.ConsumerEvidenceDocument.model_validate_json(
+            (REPOSITORY_ROOT / name).read_text()
+        )
+        assert document.consumers
+        assert all(
+            evidence.evidence_source == EvidenceSource.FIXTURE
+            and not evidence.host_verified
+            for evidence in document.consumers.values()
         )
 
 

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "consumers": {
+    "mac.codex": {
+      "product": "codex-cli",
+      "version": "0.144.0",
+      "format_fingerprint": "codex-config-v1",
+      "evidence_source": "fixture",
+      "host_verified": false
+    },
+    "mac.qoder": {
+      "product": "qodercli",
+      "version": "1.0.47",
+      "format_fingerprint": "qoder-config-v1",
+      "evidence_source": "fixture",
+      "host_verified": false
+    },
+    "mac.qoder.work": {
+      "product": "qodercli",
+      "version": "1.0.47",
+      "format_fingerprint": "qoder-config-v1",
+      "evidence_source": "fixture",
+      "host_verified": false
+    }
+  }
+}
