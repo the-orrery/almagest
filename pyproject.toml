@@ -36,7 +36,7 @@ dev = [
     "poethepoet",
 ]
 # 出单文件 binary: uv run --group freeze poe freeze
-freeze = ["pyinstaller>=6,<7"]
+freeze = ["pyinstaller>=6.22.0,<7"]
 
 [tool.poe.tasks]
 lint = "uvx ruff@0.15.16 check ."
